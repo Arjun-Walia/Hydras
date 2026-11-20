@@ -1,5 +1,13 @@
 /* eslint-disable no-console */
-import { cpSync, mkdirSync, readFileSync, writeFileSync, existsSync, readdirSync } from 'node:fs'
+import {
+  cpSync,
+  mkdirSync,
+  readFileSync,
+  writeFileSync,
+  existsSync,
+  readdirSync,
+  rmSync,
+} from 'node:fs'
 import { resolve, dirname, join } from 'node:path'
 import { createRequire } from 'node:module'
 const out = resolve('dist/Hydras-LAN-v2-Windows')
@@ -56,7 +64,10 @@ await esbuild.build({
   packages: 'external',
 })
 cpSync(process.execPath, join(out, 'node.exe'))
-cpSync('apps/web/dist', join(out, 'web'), {
+const webOutput = resolve(out, 'web')
+if (dirname(webOutput) !== out) throw Error('Invalid web staging path')
+rmSync(webOutput, { recursive: true, force: true })
+cpSync('apps/web/dist', webOutput, {
   recursive: true,
   filter: (p) => !p.includes('downloads') && !p.includes('landing'),
 })
