@@ -1,4 +1,4 @@
-import { readFileSync, rmSync } from 'node:fs'
+import { readFileSync, rmSync, readdirSync, writeFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
@@ -37,8 +37,26 @@ function excludeWebOnlyAssetsFromDesktop(): Plugin {
   }
 }
 
+function offlineShell(): Plugin {
+  return {
+    name: 'hydras:offline-shell',
+    apply: 'build',
+    closeBundle() {
+      const root = fileURLToPath(new URL('./dist/', import.meta.url))
+      const assets = readdirSync(root + 'assets').map((name) => '/assets/' + name)
+      const cache = 'hydras-shell-' + Date.now()
+      writeFileSync(
+        root + 'sw.js',
+        `const CACHE=${JSON.stringify(cache)};const ASSETS=${JSON.stringify(['/index.html', ...assets])};
+self.addEventListener('install',event=>event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(ASSETS))));
+self.addEventListener('activate',event=>event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k.startsWith('hydras-shell-')&&k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim())));
+self.addEventListener('fetch',event=>{const url=new URL(event.request.url);if(event.request.method!=='GET'||url.origin!==self.location.origin||url.pathname.startsWith('/local/')||url.pathname.startsWith('/api/'))return;if(event.request.mode==='navigate'){event.respondWith(fetch(event.request).catch(()=>caches.match('/index.html')))}else if(url.pathname.startsWith('/assets/')){event.respondWith(caches.match(event.request).then(cached=>cached||fetch(event.request)))}});`,
+      )
+    },
+  }
+}
 export default defineConfig({
-  plugins: [react(), tailwindcss(), excludeWebOnlyAssetsFromDesktop()],
+  plugins: [react(), tailwindcss(), excludeWebOnlyAssetsFromDesktop(), offlineShell()],
   define: { __APP_VERSION__: JSON.stringify(version) },
   server: { port: 5173, strictPort: true },
   // Keep Tauri's CLI output readable and expose TAURI_ENV_* to the app.

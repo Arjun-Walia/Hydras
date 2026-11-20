@@ -126,7 +126,7 @@ export function CommandPalette() {
           )}
           <Item
             value="open folder project codebase"
-            onSelect={run(() => void openFolderAction())}
+            onSelect={run(() => void openFolderAction(room))}
             icon={<FolderOpen size={14} />}
           >
             Open folder…

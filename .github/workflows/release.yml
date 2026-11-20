@@ -27,6 +27,9 @@ jobs:
           workspaces: apps/desktop/src-tauri -> target
       - run: pnpm install --frozen-lockfile
       - run: pnpm check
+      - run: pnpm --filter @hydras/web build
+      - run: node scripts/package-lan.mjs
+      - run: node scripts/collaboration-integration.mjs
       - uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

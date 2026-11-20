@@ -28,6 +28,7 @@ export function EditorHost({ fileId, fileName }: Props) {
     const editor = mountEditor({
       parent,
       binding,
+      readOnly: room.readOnly,
       fileName,
       prefs: useSettingsStore.getState().editor,
       onCursor: setCursor,

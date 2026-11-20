@@ -32,6 +32,7 @@ export interface MountEditorOptions {
   parent: HTMLElement
   binding: FileBinding
   fileName: string
+  readOnly?: boolean
   prefs?: EditorPrefs
   onCursor?: (position: { line: number; column: number }) => void
 }
@@ -48,6 +49,7 @@ export function mountEditor({
   fileName,
   prefs = defaultEditorPrefs,
   onCursor,
+  readOnly = false,
 }: MountEditorOptions): EditorHandle {
   const compartments = createPrefCompartments()
   const reportCursor = EditorView.updateListener.of((update) => {
@@ -60,6 +62,8 @@ export function mountEditor({
   const state = EditorState.create({
     doc: binding.text.toString(),
     extensions: [
+      EditorState.readOnly.of(readOnly),
+      EditorView.editable.of(!readOnly),
       ...prefExtensions(compartments, prefs),
       highlightActiveLine(),
       drawSelection(),

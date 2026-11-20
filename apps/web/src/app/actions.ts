@@ -2,9 +2,10 @@
  * User-facing commands shared by the palette, toolbar and file tree. Each one turns
  * sync-layer errors into toasts instead of letting them escape into React.
  */
+import { syncAddress } from './access'
 import { toast } from 'sonner'
 import type { Room } from '@hydras/sync'
-import { canOpenFolders, openFolder } from '../platform/open-folder'
+import { canOpenFolders, openFolder, attachFolder } from '../platform/open-folder'
 import { roomUrl } from './route'
 import { useUiStore } from './ui-store'
 
@@ -42,13 +43,14 @@ export function toggleOfflineAction(room: Room): void {
   else room.goOffline()
 }
 
-export async function openFolderAction(): Promise<void> {
+export async function openFolderAction(room?: Room): Promise<void> {
   if (!canOpenFolders()) {
     toast.error('Opening folders needs the desktop app, or Chrome / Edge')
     return
   }
   try {
-    await openFolder()
+    if (room) await attachFolder(room)
+    else await openFolder()
   } catch (error) {
     toast.error(`Could not open folder: ${errorMessage(error)}`)
   }
@@ -56,7 +58,9 @@ export async function openFolderAction(): Promise<void> {
 
 export async function copyInviteAction(slug: string): Promise<void> {
   try {
-    await navigator.clipboard.writeText(roomUrl(slug))
+    await navigator.clipboard.writeText(
+      `${roomUrl(slug)}#${new URLSearchParams({ server: syncAddress() })}`,
+    )
     toast.success('Invite link copied')
   } catch {
     toast.error('Could not access the clipboard')

@@ -51,7 +51,7 @@ export function FileRow({ fileId, path, label, depth, isActive, peers }: Props) 
       <button
         type="button"
         onClick={() => openFile(fileId)}
-        onDoubleClick={() => setIsRenaming(true)}
+        onDoubleClick={() => !room.readOnly && setIsRenaming(true)}
         title={`${path} (double-click to rename or move)`}
         style={{ paddingLeft: indent }}
         className={cn(
@@ -73,6 +73,7 @@ export function FileRow({ fileId, path, label, depth, isActive, peers }: Props) 
         </span>
       </button>
       <IconButton
+        disabled={room.readOnly}
         label={`Move ${label} to Trash`}
         className="absolute top-0.5 right-0.5 size-6 opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
         onClick={() => deleteFileAction(room, fileId, label)}

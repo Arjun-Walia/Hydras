@@ -1,18 +1,32 @@
-HYDRAS - WINDOWS x64 PORTABLE LAN TEST
+HYDRAS 0.2 - WINDOWS x64
 
-Extract the entire ZIP on BOTH Windows x64 laptops. Node is included; no npm install or internet required. Use installed Chrome or Edge. This is the browser edition; native terminals are unavailable.
+QUICK START
+1. Close old Hydras START-HOST / START-APP windows before starting this version.
+2. Both laptops: extract the complete ZIP and double-click START-HYDRAS.cmd. Chrome/Edge opens at http://localhost:5173. Keep the launcher window running. Alternatively install the EXE and open Hydras; the launcher is bundled.
+3. Connect both laptops to the same trusted Wi-Fi or hotspot; internet is optional.
+4. Host: enter a room password (8+ characters), then click Host a protected workspace. This starts the local server and chooses a LAN address automatically.
+5. Set your display name if prompted. Click Share. Send the invite and password separately to your friends.
+6. Friends: paste the invite into Join with a link on your own Hydras start screen. Enter the password and request access.
+7. Host: Workspace tools > Members. Choose Allow editing or View only for each request.
+8. Start editing. Synced with host means delivery acknowledged; Saved on this laptop means a local IndexedDB checkpoint committed. These are separate statuses.
 
-1. Connect both laptops to the SAME Wi-Fi/router/hotspot. Internet can be disconnected, but keep the local network connected. Guest Wi-Fi/client isolation can block peers.
-2. HOST laptop only: double-click START-HOST.cmd. Keep it open. If Windows Firewall asks, allow Node on your trusted Private network. The sync server uses TCP 1234. Never expose this test server to the internet; room names are its only access control.
-3. On host run ipconfig and find the Wi-Fi IPv4 address, for example 192.168.1.20.
-4. BOTH laptops: double-click START-APP.cmd, then open http://localhost:5173/r/lan-test in Chrome/Edge. Keep the command window open.
-5. BOTH laptops: Ctrl+, > Sync server: enter ws://192.168.1.20:1234 (replace with HOST IPv4), save/apply. Use the SAME room path on both. Set different names if prompted. Confirm connected/synced via Ctrl+I.
-6. Type different text in the same file at the same time. Confirm both show identical content and each other's presence. Create/rename a file and confirm propagation. Undo on one laptop should preserve the other's edits.
-7. In Ctrl+I use Go offline on one laptop. Edit on BOTH. Reconnect and confirm both edits survive and contents agree. Repeat by disconnecting the friend's Wi-Fi, then reconnecting it. With no network connection real-time sync is impossible; reconnect is required.
-8. Close/reopen the browser using the SAME localhost address and room; confirm data returns. Stop/restart host and confirm clients reconnect and data survives. Host SQLite lives in data/; browser edits live in that browser profile. Do not clear site data during testing.
+YOUR PROJECT
+From the protected room, use Workspace tools > Attach project folder to this room. Start with a disposable copy. The selected laptop imports disk files and writes collaborative edits back to that folder. Existing matching paths initially use disk contents. Other members do not automatically get a disk clone. Export workspace JSON for a portable backup including file paths, text and Trash; Import backup recovers copies into a new folder.
 
-YOUR OWN PROJECT: use Open folder on the HOST and select a disposable copy first. Share that room's /r/<id> path with the friend, opened at http://localhost:5173/r/<id>. Both keep the same host sync URL. The host writes shared edits to its selected folder while connected. Your friend's disk is not automatically a clone. Only one person should host the folder for this test.
+RECOVERY
+Save checkpoint stores one of the latest ten recovery points on that laptop/browser profile. Recover copies preserves current files and creates a separate recovered-* folder, including trashed content. Export important backups separately; clearing browser data removes local checkpoints and credentials. Undo history is per-user but does not survive reloads.
 
-Troubleshooting: localhost in sync settings refers to EACH laptop, so use the host IPv4. If disconnected, on the friend's PowerShell run Test-NetConnection HOST_IP -Port 1234. Check host is running, network profile/firewall, and router client isolation. Do not disable the firewall globally. Keep local app port 5173 unchanged to preserve browser storage identity.
+OFFLINE TEST
+Use four browser profiles/devices in the same room. Type distinct markers concurrently, verify live cursors and identical contents. Undo on one device; other people's edits must remain. Disconnect two clients, edit all copies, reload the disconnected clients after Saved on this laptop appears, and reconnect. Markers should converge. Offline reload needs an initial successful load to cache the app. The host stays awake; there is no automatic host failover.
 
-Scope: automated tests and local verification cannot prove your two physical laptops/network work perfectly. Complete this checklist together before using important files. More friends can follow the same client steps.
+PERMISSIONS TEST
+Create an editor and viewer. Verify the viewer cannot edit. Downgrade/revoke a member from the host; clients refresh access within a few seconds and the server enforces permissions. Cached data already downloaded cannot be erased remotely; revoked users retain local recovery/export access, but cannot publish changes.
+
+DIAGNOSTICS
+Workspace tools > Check connection tests host HTTP reachability. Firewall, guest-Wi-Fi isolation, VPN routing, a stopped host, browser mixed-content restrictions, or a changed IP can all cause failure; the diagnostic lists possibilities rather than claiming certainty. Allow bundled Node on the host's trusted Private network (TCP 1234). Do not disable the firewall. If the chosen address is wrong, enter the host Wi-Fi IPv4 as ws://HOST_IP:1234 in Settings on both laptops and share a fresh invite. Keep the same host IP during testing.
+
+DATA AND UPDATES
+Portable server data: data/ beside the launcher. Desktop server data: the Windows app-data directory for software.hydras.desktop. Browser/desktop local copies and credentials live in their respective profiles and are not automatically shared between the two editions. Back up server SQLite and access.json together with the app closed. Never delete data/ during an update. Download a newer installer from Downloads and updates and install over the old version; for portable updates keep the data directory and use the same localhost port/browser profile. Automatic signed background updating is not included.
+
+SECURITY / REQUIREMENTS
+Windows x64. Browser edition requires Chrome/Edge. Desktop requires WebView2; if missing the installer downloads it, so install that prerequisite while online. These test installers are unsigned. LAN ws:// and http:// traffic is unencrypted; use trusted networks. For internet deployments configure HTTPS/WSS. Password protection applies to rooms created by Host a protected workspace; legacy/open rooms remain open. Native terminals are local to the desktop user, not shared.

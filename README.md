@@ -4,6 +4,36 @@ Offline-first multiplayer code workspace. 4+ people edit the same files live, ke
 through bad Wi-Fi, and everything merges on reconnect. Edits are never lost, and undo only
 touches your own changes.
 
+## LAN collaboration release (0.2)
+
+Use the Windows installer or portable ZIP from [GitHub Releases](https://github.com/Arjun-Walia/Hydras/releases). The portable entry point is `START-HYDRAS.cmd`; it opens the local browser app. The desktop installer bundles the local Node launcher and sync server.
+
+1. Connect everyone to the same trusted Wi-Fi/hotspot. Internet is not needed.
+2. Choose **Host a protected workspace**, set a password, and **Share** the invite.
+3. Friends paste the invite into **Join with a link**, supply the password, and request access.
+4. The host approves editors/viewers in **Workspace tools**. Permissions are enforced at the server, including forged viewer writes and revocation.
+5. Attach a project folder **inside that room** to retain its permissions. The host's folder receives shared edits; other laptops keep browser copies unless they export.
+
+**Workspace tools** includes connection diagnostics, ten local recovery checkpoints, JSON export/import, and member management. Recovery creates separate recovered files without overwriting live content. Local-save confirmation comes from an IndexedDB transaction; host-sync confirmation comes from protocol acknowledgments, not a disk-backup guarantee. The app shell is cached for offline reload after its first successful load.
+
+See [the complete two/four-laptop checklist](scripts/LAN-TEST.txt) and [verification evidence and limits](docs/collaboration-acceptance.md).
+
+### Rebuild and verify the downloadable package
+
+```powershell
+pnpm check
+pnpm --filter @hydras/web build
+node scripts/package-lan.mjs
+node scripts/collaboration-integration.mjs
+pnpm --filter @hydras/desktop build:desktop
+```
+
+The package is staged in `dist/Hydras-LAN-v2-Windows`. Keep user data out of build staging. For a longer network partition test set `HYDRAS_PARTITION_MS=60000` before the integration script. The server test uses an isolated temporary database and port 18341.
+
+Updates are explicit downloads from the app's **Downloads and updates** link. Install over the previous desktop version; preserve portable `data/` when updating. There is no signed automatic background updater. Windows installers require WebView2 (downloaded if absent), so prepare that prerequisite before going offline.
+
+LAN HTTP/WS is unencrypted; use trusted networks, and HTTPS/WSS for remote deployment. Existing open rooms remain open. The host must stay awake; there is no host failover. Cached data cannot be remotely erased after revocation. Undo history is not persisted across reloads. Back up SQLite and `access.json` together with the app closed.
+
 ## 60-second quickstart
 
 ```bash
@@ -165,5 +195,5 @@ Obsidian vault (`Hydras/`).
 ## Known limitations
 
 - Undo stack is in memory: cleared on reload.
-- Room link is the only access control (`onAuthenticate` is the hook for real auth).
+- Legacy/open rooms use the room link as access control. New protected rooms require a password, member approval and an issued token.
 - Web bundle is one ~1 MB chunk; code-split CodeMirror languages when it matters.

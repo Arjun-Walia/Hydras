@@ -2,11 +2,12 @@
  * "Open folder": pick a folder (native dialog on desktop, File System Access API in
  * Chrome/Edge), start a new room for it, remember the link, and go there.
  */
+import type { Room } from '@hydras/sync'
 import { ROOM_SLUG_PATTERN } from '@hydras/shared'
 import { isDesktopApp } from '../app/platform'
 import { navigate } from '../app/route'
-import { canOpenFoldersInBrowser, pickBrowserFolder } from './browser-folder'
-import { pickDesktopFolder } from './desktop-folder'
+import { canOpenFoldersInBrowser, pickBrowserFolder, BrowserFolderHost } from './browser-folder'
+import { pickDesktopFolder, DesktopFolderHost } from './desktop-folder'
 import { saveFolderLink } from './folder-links'
 
 export function canOpenFolders(): boolean {
@@ -44,4 +45,20 @@ export async function openFolder(): Promise<boolean> {
   await saveFolderLink(slug, { kind: 'browser', handle, name: handle.name })
   navigate(`/r/${slug}`)
   return true
+}
+
+/** Keep the current room and its permissions when attaching a folder. */
+export async function attachFolder(room: Room): Promise<void> {
+  if (room.readOnly) throw Error('Viewers cannot host folders')
+  if (isDesktopApp()) {
+    const picked = await pickDesktopFolder()
+    if (!picked) return
+    await saveFolderLink(room.slug, { kind: 'desktop', root: picked.root, name: picked.name })
+    room.linkFolder(new DesktopFolderHost(picked.root, picked.name))
+  } else {
+    const handle = await pickBrowserFolder()
+    if (!handle) return
+    await saveFolderLink(room.slug, { kind: 'browser', handle, name: handle.name })
+    room.linkFolder(new BrowserFolderHost(handle))
+  }
 }

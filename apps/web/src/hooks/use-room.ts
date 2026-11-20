@@ -3,6 +3,7 @@
  * IndexedDB and a socket), destroyed on unmount or when the slug, user or sync server
  * changes. Local edits survive a server change: they live in IndexedDB and merge in.
  */
+import { session } from '../app/access'
 import { useEffect, useState } from 'react'
 import { DEFAULT_SYNC_URL, type UserIdentity } from '@hydras/shared'
 import { createRoom, type Room } from '@hydras/sync'
@@ -18,7 +19,15 @@ export function useRoom(slug: string, user: UserIdentity): Room | null {
 
   useEffect(() => {
     // Rooms opened from a folder get the folder's files, never the starter files.
-    const created = createRoom({ slug, serverUrl, user, seedStarterFiles: !hasFolderLink(slug) })
+    const credentials = session(slug)
+    const created = createRoom({
+      slug,
+      serverUrl,
+      user,
+      token: credentials?.token,
+      readOnly: credentials?.role === 'viewer' || credentials?.role === 'rejected',
+      seedStarterFiles: !hasFolderLink(slug),
+    })
     setRoom(created)
     return () => {
       created.destroy()

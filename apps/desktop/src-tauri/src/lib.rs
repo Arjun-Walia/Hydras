@@ -5,6 +5,7 @@
 //! All collaboration logic stays in the web code.
 
 mod folders;
+mod lan;
 mod paths;
 mod terminal;
 mod watch;
@@ -15,6 +16,8 @@ pub fn run() {
     let app = tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .manage(folders::FolderAccess::default())
+        .manage(lan::LanRuntime::default())
+        .setup(|app| { lan::start(app)?; Ok(()) })
         .manage(watch::Watchers::default())
         .manage(terminal::Terminals::default())
         .invoke_handler(tauri::generate_handler![
@@ -36,6 +39,7 @@ pub fn run() {
     app.run(|handle, event| {
         if let RunEvent::Exit = event {
             handle.state::<terminal::Terminals>().kill_all();
+            handle.state::<lan::LanRuntime>().stop();
         }
     });
 }

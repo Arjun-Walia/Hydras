@@ -22,6 +22,7 @@ import { useMergeToasts } from '../presence/use-merge-toasts'
 import { SettingsDialog } from '../settings/SettingsDialog'
 import { TerminalPanel } from '../terminal/TerminalPanel'
 import { StatusBar } from './StatusBar'
+import { WorkspaceTools } from './WorkspaceTools'
 import { TitleBar } from './TitleBar'
 
 type Props = {
@@ -51,7 +52,7 @@ export function Workspace({ slug, identity }: Props) {
   }, [slug])
 
   if (!room) return <div className="h-full bg-bg" />
-  return <RoomWorkspace key={room.slug} room={room} />
+  return <RoomWorkspace key={`${room.slug}:${room.serverUrl}:${room.readOnly}`} room={room} />
 }
 
 function RoomWorkspace({ room }: { room: Room }) {
@@ -65,6 +66,7 @@ function RoomWorkspace({ room }: { room: Room }) {
     <RoomContext.Provider value={room}>
       <div className="flex h-full flex-col bg-bg text-fg">
         <TitleBar />
+        <WorkspaceTools />
         <ReconnectBanner state={folderLink} />
         <Group orientation="horizontal" className="min-h-0 flex-1">
           {showFiles && (

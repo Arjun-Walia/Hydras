@@ -22,3 +22,11 @@ createRoot(root).render(
     <App />
   </StrictMode>,
 )
+
+if (
+  import.meta.env.PROD &&
+  'serviceWorker' in navigator &&
+  ['localhost', '127.0.0.1'].includes(location.hostname)
+) {
+  void navigator.serviceWorker.register('/sw.js').catch(() => {})
+}

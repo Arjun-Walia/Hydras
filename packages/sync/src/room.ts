@@ -11,6 +11,7 @@
  * the Y.Doc; it only passes FileBinding objects straight through to the editor package.
  */
 import * as Y from 'yjs'
+import { captureWorkspace, recoverWorkspace, type WorkspaceSnapshot } from './recovery'
 import { IndexeddbPersistence } from 'y-indexeddb'
 import type { Awareness } from 'y-protocols/awareness'
 import { HocuspocusProvider, HocuspocusProviderWebsocket } from '@hocuspocus/provider'
@@ -65,6 +66,8 @@ export interface RoomOptions {
   serverUrl: string
   user: UserIdentity
   /** Seed an empty room with starter files after first sync. Off for folder rooms. */
+  token?: string
+  readOnly?: boolean
   seedStarterFiles?: boolean
 }
 
@@ -75,6 +78,13 @@ export interface FolderState {
 
 export interface Room {
   readonly slug: string
+  readonly serverUrl: string
+  readonly readOnly: boolean
+  readonly localSave: Readable<'loading' | 'saving' | 'saved' | 'error'>
+  readonly delivery: Readable<number>
+  readonly authError: Readable<string | null>
+  capture(name: string): WorkspaceSnapshot
+  recover(snapshot: WorkspaceSnapshot): void
   readonly connection: Readable<ConnectionState>
   readonly files: Readable<FileEntry[]>
   readonly peers: Readable<Peer[]>
@@ -118,11 +128,26 @@ function readPeers(awareness: Awareness): Peer[] {
   return peers.sort((a, b) => Number(b.isSelf) - Number(a.isSelf) || a.clientId - b.clientId)
 }
 
-export function createRoom({ slug, serverUrl, user, seedStarterFiles = true }: RoomOptions): Room {
+export function createRoom({
+  slug,
+  serverUrl,
+  user,
+  token,
+  readOnly = false,
+  seedStarterFiles = true,
+}: RoomOptions): Room {
   const doc = new Y.Doc()
-  const storage = new IndexeddbPersistence(`hydras:${slug}`, doc)
+  const storage = new IndexeddbPersistence(
+    token ? `hydras:${serverUrl}:${slug}` : `hydras:${slug}`,
+    doc,
+  )
   const socket = new HocuspocusProviderWebsocket({ url: serverUrl, autoConnect: false })
-  const provider = new HocuspocusProvider({ name: slug, document: doc, websocketProvider: socket })
+  const provider = new HocuspocusProvider({
+    name: slug,
+    document: doc,
+    websocketProvider: socket,
+    token,
+  })
   provider.attach()
 
   const awareness = provider.awareness
@@ -131,6 +156,32 @@ export function createRoom({ slug, serverUrl, user, seedStarterFiles = true }: R
   const initialPresence: Presence = { user, activeFile: null, viewport: null, status: 'active' }
   awareness.setLocalState(initialPresence)
 
+  const localSave = writable<'loading' | 'saving' | 'saved' | 'error'>('loading')
+  let saveTimer: ReturnType<typeof setTimeout> | null = null
+  let revision = 0
+  const persistCheckpoint = () => {
+    saveTimer = null
+    if (!storage.db) return
+    const savedRevision = revision
+    try {
+      const tx = storage.db.transaction('custom', 'readwrite')
+      tx.objectStore('custom').put(Y.encodeStateAsUpdate(doc), 'durable-checkpoint')
+      tx.oncomplete = () => {
+        if (revision === savedRevision) localSave.set('saved')
+      }
+      tx.onerror = tx.onabort = () => localSave.set('error')
+    } catch {
+      localSave.set('error')
+    }
+  }
+  const delivery = writable(0)
+  const authError = writable<string | null>(null)
+  provider.on('unsyncedChanges', ({ number }: { number: number }) => delivery.set(number))
+  provider.on('authenticationFailed', ({ reason }: { reason: string }) => authError.set(reason))
+  provider.on('authenticated', () => authError.set(null))
+  const requireEditor = () => {
+    if (readOnly) throw Error('This room is read-only')
+  }
   const connection = writable<ConnectionState>(initialConnectionState)
   const dispatch = (event: ConnectionEvent) => connection.update((s) => reduceConnection(s, event))
 
@@ -164,6 +215,10 @@ export function createRoom({ slug, serverUrl, user, seedStarterFiles = true }: R
   }
 
   const onUpdate = (update: Uint8Array, origin: unknown) => {
+    revision++
+    localSave.set('saving')
+    if (saveTimer) clearTimeout(saveTimer)
+    saveTimer = setTimeout(persistCheckpoint, 300)
     const kind = classifyOrigin(origin, { remote: provider, storage })
     if (kind === 'local' || kind === 'files') dispatch({ type: 'local-change' })
     const entry: UpdateLogEntry = {
@@ -187,7 +242,7 @@ export function createRoom({ slug, serverUrl, user, seedStarterFiles = true }: R
   awareness.on('change', onAwarenessChange)
 
   // --- connection wiring --------------------------------------------------------------
-  let seeded = !seedStarterFiles
+  let seeded = !seedStarterFiles || readOnly
   const seedIfEmpty = () => {
     if (seeded) return
     seeded = true
@@ -206,7 +261,11 @@ export function createRoom({ slug, serverUrl, user, seedStarterFiles = true }: R
     seedIfEmpty()
   })
 
-  const ready = storage.whenSynced.then(() => {
+  const ready = storage.whenSynced.then(async () => {
+    const checkpoint = await storage.get('durable-checkpoint')
+    if (destroyed) return
+    if (checkpoint instanceof Uint8Array) Y.applyUpdate(doc, checkpoint, storage)
+    persistCheckpoint()
     if (destroyed) return
     refreshInspector()
     void socket.connect()
@@ -238,6 +297,16 @@ export function createRoom({ slug, serverUrl, user, seedStarterFiles = true }: R
   // --- public API ---------------------------------------------------------------------
   return {
     slug,
+    serverUrl,
+    readOnly,
+    delivery,
+    localSave,
+    authError,
+    capture: (name) => captureWorkspace(doc, name),
+    recover: (snapshot) => {
+      requireEditor()
+      recoverWorkspace(doc, snapshot)
+    },
     connection,
     files: fileList,
     peers,
@@ -246,6 +315,7 @@ export function createRoom({ slug, serverUrl, user, seedStarterFiles = true }: R
     ready,
     folder,
     linkFolder(host, options) {
+      requireEditor()
       stopFolderStatus?.()
       folderLink?.unlink()
       const link = linkFolder(doc, host, options)
@@ -263,10 +333,22 @@ export function createRoom({ slug, serverUrl, user, seedStarterFiles = true }: R
       folderLink = null
       folder.set(null)
     },
-    createFile: (name, content) => files.createFile(doc, { name, content: content ?? '' }),
-    renameFile: (id, name) => files.renameFile(doc, id, name),
-    deleteFile: (id) => files.deleteFile(doc, id),
-    restoreFile: (id) => files.restoreFile(doc, id),
+    createFile: (name, content) => {
+      requireEditor()
+      return files.createFile(doc, { name, content: content ?? '' })
+    },
+    renameFile: (id, name) => {
+      requireEditor()
+      files.renameFile(doc, id, name)
+    },
+    deleteFile: (id) => {
+      requireEditor()
+      files.deleteFile(doc, id)
+    },
+    restoreFile: (id) => {
+      requireEditor()
+      files.restoreFile(doc, id)
+    },
     bindFile,
     setActiveFile(id) {
       activeFileId = id
@@ -275,9 +357,11 @@ export function createRoom({ slug, serverUrl, user, seedStarterFiles = true }: R
       refreshActiveUndo()
     },
     undo: (id) => {
+      requireEditor()
       bindFile(id)?.undoManager.undo()
     },
     redo: (id) => {
+      requireEditor()
       bindFile(id)?.undoManager.redo()
     },
     goOffline() {
@@ -291,6 +375,10 @@ export function createRoom({ slug, serverUrl, user, seedStarterFiles = true }: R
     destroy() {
       destroyed = true
       if (inspectorTimer) clearTimeout(inspectorTimer)
+      if (saveTimer) {
+        clearTimeout(saveTimer)
+        persistCheckpoint()
+      }
       stopFolderStatus?.()
       if (folderLink) {
         const link = folderLink

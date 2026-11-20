@@ -13,6 +13,7 @@ import { describeConnection } from './connection-label'
 export function StatusBar() {
   const room = useCurrentRoom()
   const connection = useReadable(room.connection)
+  const delivery = useReadable(room.delivery)
   const peers = useReadable(room.peers)
   const cursor = useUiStore((s) => s.cursor)
   const terminalOpen = useUiStore((s) => s.terminalOpen)
@@ -36,7 +37,15 @@ export function StatusBar() {
         className="flex items-center gap-2 rounded px-1 -mx-1 hover:text-fg"
       >
         <StatusDot tone={label.tone} pulse={label.pulse} />
-        <span>{label.text}</span>
+        <span>
+          {connection.status === 'online'
+            ? delivery > 0
+              ? 'Waiting to sync…'
+              : label.text === 'Online'
+                ? 'Synced with host'
+                : label.text
+            : label.text}
+        </span>
         {connection.forcedOffline && <WifiOff size={12} className="text-warn" />}
       </button>
       <span>

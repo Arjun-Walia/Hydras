@@ -98,12 +98,16 @@ export function FileTree() {
       <div className="flex h-9 items-center justify-between gap-2 pr-1.5 pl-3">
         <Eyebrow className="truncate">{folder ? folder.name : 'Files'}</Eyebrow>
         <span className="flex shrink-0 items-center">
-          {!folder && canOpenFolders() && (
-            <IconButton label="Open folder…" onClick={() => void openFolderAction()}>
+          {!room.readOnly && !folder && canOpenFolders() && (
+            <IconButton label="Open folder…" onClick={() => void openFolderAction(room)}>
               <FolderOpen size={14} />
             </IconButton>
           )}
-          <IconButton label="New file (use / for folders)" onClick={() => setIsCreating(true)}>
+          <IconButton
+            disabled={room.readOnly}
+            label="New file (use / for folders)"
+            onClick={() => setIsCreating(true)}
+          >
             <FilePlus2 size={14} />
           </IconButton>
         </span>
@@ -133,7 +137,9 @@ export function FileTree() {
         names={names}
         isOpen={isTrashOpen}
         onToggle={() => setIsTrashOpen((open) => !open)}
-        onRestore={(id) => room.restoreFile(id)}
+        onRestore={(id) => {
+          if (!room.readOnly) room.restoreFile(id)
+        }}
       />
     </aside>
   )

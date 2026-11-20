@@ -5,6 +5,7 @@
  * Navigation uses history.pushState so it works the same in the browser and in the
  * desktop shell, which has no server to fall back to index.html.
  */
+import { isDesktopApp } from './platform'
 import { useSyncExternalStore } from 'react'
 import { ROOM_SLUG_PATTERN, randomDisplayName } from '@hydras/shared'
 
@@ -42,9 +43,10 @@ export function slugFromInput(input: string): string | null {
 }
 
 export function roomUrl(slug: string): string {
-  const origin = window.location.origin.startsWith('http')
-    ? window.location.origin
-    : 'https://hydras.software'
+  const origin =
+    !isDesktopApp() && window.location.origin.startsWith('http')
+      ? window.location.origin
+      : 'http://localhost:5173'
   return `${origin}/r/${slug}`
 }
 

@@ -16,3 +16,6 @@ playwright-report/
 apps/desktop/src-tauri/target/
 apps/desktop/src-tauri/gen/
 apps/web/public/downloads/
+
+.playwright-cli/
+output/

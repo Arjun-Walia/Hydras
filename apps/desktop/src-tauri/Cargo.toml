@@ -1,6 +1,6 @@
 [package]
 name = "hydras-desktop"
-version = "0.1.0"
+version = "0.2.0"
 description = "Hydras: offline-first multiplayer code workspace"
 edition = "2021"
 publish = false

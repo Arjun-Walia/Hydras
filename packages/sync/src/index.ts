@@ -28,3 +28,5 @@ export type { Readable } from './observable'
 export type { OriginKind } from './origins'
 export type { StateVectorEntry } from './inspect'
 export type { UndoState } from './undo'
+
+export type { WorkspaceSnapshot } from './recovery'
