@@ -1,0 +1,40 @@
+{
+  "name": "hydras",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@10.33.0",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "pnpm --parallel --filter @hydras/server --filter @hydras/web dev",
+    "dev:web": "pnpm --filter @hydras/web dev",
+    "dev:server": "pnpm --filter @hydras/server dev",
+    "dev:desktop": "pnpm --filter @hydras/desktop dev:desktop",
+    "release:desktop": "pnpm --filter @hydras/desktop build:desktop && pnpm release:stage",
+    "release:stage": "node scripts/stage-installers.mjs",
+    "build": "pnpm -r build",
+    "typecheck": "pnpm -r typecheck",
+    "test": "pnpm -r test",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "check": "pnpm lint && pnpm typecheck && pnpm test"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.15.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "globals": "^17.14.0",
+    "prettier": "^3.10.1",
+    "typescript": "~6.0.3",
+    "typescript-eslint": "^8.73.0"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "better-sqlite3",
+      "esbuild"
+    ]
+  }
+}

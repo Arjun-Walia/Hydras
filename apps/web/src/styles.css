@@ -1,0 +1,212 @@
+@import 'tailwindcss';
+@import '@hydras/ui/tokens.css';
+
+/* Scan the shared UI package for class names too. */
+@source '../../../packages/ui/src';
+
+@theme inline {
+  --font-sans: var(--font-ui);
+  --font-serif: var(--font-serif);
+  --font-mono: var(--font-mono);
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-soft: var(--surface-soft);
+  --color-surface-raised: var(--surface-raised);
+  --color-line: var(--line);
+  --color-line-soft: var(--line-soft);
+  --color-fg: var(--fg);
+  --color-muted: var(--muted);
+  --color-faint: var(--faint);
+  --color-accent: var(--accent);
+  --color-accent-soft: var(--accent-soft);
+  --color-warn: var(--warn);
+  --color-danger: var(--danger);
+}
+
+/*
+ * Landing page tokens, matched to the Agentic-marketplace site (MIT) it is ported from.
+ * The landing is light-only and ignores the app theme on purpose.
+ */
+@theme {
+  --color-foreground: #252b31;
+  --color-muted-foreground: #252b31;
+  --color-border: #252b31;
+  --font-display: 'Instrument Serif', Georgia, serif;
+  --font-body: 'Inter Variable', Inter, -apple-system, BlinkMacSystemFont, sans-serif;
+  --shadow-2xs: 0px 1px 2px 0px hsl(0 0% 0% / 0.09);
+  --shadow-xs: 0px 1px 2px 0px hsl(0 0% 0% / 0.09);
+  --shadow-sm: 0px 1px 2px 0px hsl(0 0% 0% / 0.18), 0px 1px 2px -1px hsl(0 0% 0% / 0.18);
+  --shadow-md: 0px 1px 2px 0px hsl(0 0% 0% / 0.18), 0px 2px 4px -1px hsl(0 0% 0% / 0.18);
+  --shadow-lg: 0px 1px 2px 0px hsl(0 0% 0% / 0.18), 0px 4px 6px -1px hsl(0 0% 0% / 0.18);
+}
+
+/* Landing animations (marquees, flowing dashes, bobbing cube). */
+@keyframes lp-marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+@keyframes lp-marquee-rev {
+  from {
+    transform: translateX(-50%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+@keyframes lp-flow {
+  from {
+    stroke-dashoffset: 0;
+  }
+  to {
+    stroke-dashoffset: -30;
+  }
+}
+@keyframes lp-dash {
+  to {
+    stroke-dashoffset: -24;
+  }
+}
+@keyframes lp-bob {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-9px);
+  }
+}
+.lp-marquee {
+  animation: lp-marquee 28s linear infinite;
+}
+.lp-marquee-rev {
+  animation: lp-marquee-rev 28s linear infinite;
+}
+.lp-int {
+  animation: lp-marquee 45s linear infinite;
+}
+.lp-int-rev {
+  animation: lp-marquee-rev 50s linear infinite;
+}
+.lp-flow {
+  stroke-dasharray: 4 26;
+  animation: lp-flow 1.4s linear infinite;
+}
+.lp-dash {
+  stroke-dasharray: 5 7;
+  animation: lp-dash 1.2s linear infinite;
+}
+.lp-bob {
+  animation: lp-bob 3.2s ease-in-out infinite;
+}
+.dashboard-glass {
+  background: rgba(255, 255, 255, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  box-shadow:
+    0 25px 80px -12px rgba(0, 0, 0, 0.08),
+    0 0 0 1px rgba(0, 0, 0, 0.06);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: var(--font-ui);
+    font-size: 13px;
+    -webkit-font-smoothing: antialiased;
+    font-feature-settings: 'cv11', 'ss01';
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  ::selection {
+    background: var(--selection);
+  }
+
+  /* 5px translucent scrollbars */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--scrollbar) transparent;
+  }
+  *::-webkit-scrollbar {
+    width: 5px;
+    height: 5px;
+  }
+  *::-webkit-scrollbar-thumb {
+    background: var(--scrollbar);
+    border-radius: 999px;
+  }
+}
+
+/* Resizable panel handles: hairline that lights up on hover/drag. */
+[data-separator] {
+  position: relative;
+  width: 1px;
+  background: var(--line-soft);
+  transition: background var(--dur-fast) var(--ease-out);
+}
+[data-separator]::after {
+  content: '';
+  position: absolute;
+  inset: 0 -3px;
+}
+[data-separator]:hover,
+[data-separator][data-separator-state='drag'] {
+  background: var(--accent);
+}
+
+/* Horizontal separator between the editor and the terminal. */
+[data-separator].separator-h {
+  width: auto;
+  height: 1px;
+}
+[data-separator].separator-h::after {
+  inset: -3px 0;
+}
+
+/* xterm fills its panel; keep its scrollbar consistent with ours. */
+.xterm .xterm-viewport {
+  background-color: transparent !important;
+}
+
+/* Row density (Settings -> Workspace layout -> Compact rows). */
+:root {
+  --row-h: 28px;
+  --tab-h: 36px;
+}
+:root[data-density='compact'] {
+  --row-h: 24px;
+  --tab-h: 30px;
+}
+
+/* System preference OR Settings -> General -> Reduce motion. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+:root[data-reduce-motion='true'] *,
+:root[data-reduce-motion='true'] *::before,
+:root[data-reduce-motion='true'] *::after {
+  animation-duration: 0.01ms !important;
+  transition-duration: 0.01ms !important;
+  scroll-behavior: auto !important;
+}

@@ -1,0 +1,11 @@
+**/node_modules
+**/dist
+**/data
+**/*.sqlite*
+apps/desktop/src-tauri/target
+apps/web/public/downloads
+apps/web/public/landing
+.git
+.github
+.env
+.env.*

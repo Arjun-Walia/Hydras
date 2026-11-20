@@ -1,0 +1,23 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "hydras-web",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "@hydras/web", "dev"],
+      "port": 5173
+    },
+    {
+      "name": "hydras-web-preview",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "@hydras/web", "preview", "--port", "4173", "--strictPort"],
+      "port": 4173
+    },
+    {
+      "name": "hydras-server",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "@hydras/server", "dev"],
+      "port": 1234
+    }
+  ]
+}

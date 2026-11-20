@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Core window permissions only. The app needs no file system or shell access.",
+  "windows": ["main"],
+  "permissions": ["core:default"]
+}
