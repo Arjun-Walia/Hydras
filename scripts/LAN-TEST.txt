@@ -1,0 +1,18 @@
+HYDRAS - WINDOWS x64 PORTABLE LAN TEST
+
+Extract the entire ZIP on BOTH Windows x64 laptops. Node is included; no npm install or internet required. Use installed Chrome or Edge. This is the browser edition; native terminals are unavailable.
+
+1. Connect both laptops to the SAME Wi-Fi/router/hotspot. Internet can be disconnected, but keep the local network connected. Guest Wi-Fi/client isolation can block peers.
+2. HOST laptop only: double-click START-HOST.cmd. Keep it open. If Windows Firewall asks, allow Node on your trusted Private network. The sync server uses TCP 1234. Never expose this test server to the internet; room names are its only access control.
+3. On host run ipconfig and find the Wi-Fi IPv4 address, for example 192.168.1.20.
+4. BOTH laptops: double-click START-APP.cmd, then open http://localhost:5173/r/lan-test in Chrome/Edge. Keep the command window open.
+5. BOTH laptops: Ctrl+, > Sync server: enter ws://192.168.1.20:1234 (replace with HOST IPv4), save/apply. Use the SAME room path on both. Set different names if prompted. Confirm connected/synced via Ctrl+I.
+6. Type different text in the same file at the same time. Confirm both show identical content and each other's presence. Create/rename a file and confirm propagation. Undo on one laptop should preserve the other's edits.
+7. In Ctrl+I use Go offline on one laptop. Edit on BOTH. Reconnect and confirm both edits survive and contents agree. Repeat by disconnecting the friend's Wi-Fi, then reconnecting it. With no network connection real-time sync is impossible; reconnect is required.
+8. Close/reopen the browser using the SAME localhost address and room; confirm data returns. Stop/restart host and confirm clients reconnect and data survives. Host SQLite lives in data/; browser edits live in that browser profile. Do not clear site data during testing.
+
+YOUR OWN PROJECT: use Open folder on the HOST and select a disposable copy first. Share that room's /r/<id> path with the friend, opened at http://localhost:5173/r/<id>. Both keep the same host sync URL. The host writes shared edits to its selected folder while connected. Your friend's disk is not automatically a clone. Only one person should host the folder for this test.
+
+Troubleshooting: localhost in sync settings refers to EACH laptop, so use the host IPv4. If disconnected, on the friend's PowerShell run Test-NetConnection HOST_IP -Port 1234. Check host is running, network profile/firewall, and router client isolation. Do not disable the firewall globally. Keep local app port 5173 unchanged to preserve browser storage identity.
+
+Scope: automated tests and local verification cannot prove your two physical laptops/network work perfectly. Complete this checklist together before using important files. More friends can follow the same client steps.
