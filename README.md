@@ -6,11 +6,11 @@ touches your own changes.
 
 ## Demo
 
-53 seconds: the landing page, then three people in one room typing the same file with live cursors.
+Three people in one room typing the same file, with live cursors.
 
-<video src="docs/demo.mp4" width="960" height="425" controls></video>
+![Three collaborators editing README.md live in Hydras](docs/demo.gif)
 
-[Open `docs/demo.mp4`](docs/demo.mp4) if the player does not start.
+The [full 53-second walkthrough](docs/demo.mp4) also shows the landing page and settings.
 
 ## LAN collaboration release (0.2)
 
