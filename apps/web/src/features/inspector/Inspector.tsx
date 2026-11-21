@@ -16,6 +16,7 @@ const ORIGIN_STYLE: Record<OriginKind, string> = {
   local: 'text-accent',
   files: 'text-accent',
   disk: 'text-warn',
+  board: 'text-[var(--syn-type)]',
   remote: 'text-[var(--syn-function)]',
   storage: 'text-faint',
 }

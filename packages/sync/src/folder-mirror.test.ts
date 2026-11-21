@@ -5,7 +5,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import * as Y from 'yjs'
 import { findFileByPath, getFileText, listFiles, renameFile, deleteFile } from './files'
-import { linkFolder, type FolderHost, type ReadResult } from './folder-mirror'
+import { MIRROR_LIMITS, linkFolder, type FolderHost, type ReadResult } from './folder-mirror'
 import { LOCAL_ORIGIN } from './origins'
 
 class MemoryFolder implements FolderHost {
@@ -172,5 +172,79 @@ describe('folder mirror', () => {
     doc.transact(() => text.insert(1, 'y'), LOCAL_ORIGIN)
     await settle()
     expect(folder.files.get('a.ts')).toBe('x')
+  })
+})
+
+describe('folder mirror: big codebases', () => {
+  beforeEach(() => vi.useFakeTimers())
+  afterEach(() => vi.useRealTimers())
+
+  /** A folder deeper than the eager budget, so most files become stubs. */
+  const bigFolder = (count: number) => {
+    const files: Record<string, string> = { 'README.md': '# big' }
+    for (let i = 0; i < count; i++)
+      files[`pkg${i % 50}/src/deep/file${i}.ts`] = `export const n${i} = ${i}\n`
+    return new MemoryFolder(files)
+  }
+
+  it('lists every file but only reads the eager budget, shallowest first', async () => {
+    const folder = bigFolder(MIRROR_LIMITS.eagerFiles + 500)
+    const doc = new Y.Doc()
+    const link = linkFolder(doc, folder)
+    await settle()
+
+    const entries = listFiles(doc)
+    expect(entries).toHaveLength(MIRROR_LIMITS.eagerFiles + 501)
+    expect(entries.filter((e) => e.stub)).toHaveLength(501)
+    expect(textOf(doc, 'README.md')).toBe('# big')
+    expect(link.status.get()).toMatchObject({
+      state: 'live',
+      files: MIRROR_LIMITS.eagerFiles + 501,
+    })
+  })
+
+  it('loads a stub from disk when it is opened, and never writes a stub back', async () => {
+    const folder = bigFolder(MIRROR_LIMITS.eagerFiles + 10)
+    const doc = new Y.Doc()
+    const link = linkFolder(doc, folder)
+    await settle()
+
+    const stub = listFiles(doc).find((e) => e.stub)!
+    expect(getFileText(doc, stub.id)!.toString()).toBe('')
+    // Renaming a stub must not write its empty text over the real file.
+    renameFile(doc, stub.id, `${stub.name}.renamed`)
+    await settle()
+    expect(folder.writes).toEqual([])
+    renameFile(doc, stub.id, stub.name)
+
+    link.load([stub.id])
+    await settle()
+    const loaded = listFiles(doc).find((e) => e.id === stub.id)!
+    expect(loaded.stub).toBeUndefined()
+    expect(getFileText(doc, stub.id)!.toString()).toBe(folder.files.get(stub.name))
+    expect(folder.writes).toEqual([])
+  })
+
+  it('queues a load requested during import', async () => {
+    const folder = bigFolder(MIRROR_LIMITS.eagerFiles + 5)
+    const doc = new Y.Doc()
+    const link = linkFolder(doc, folder)
+    link.load(['not-yet-known'])
+    await settle()
+    const stub = listFiles(doc).find((e) => e.stub)!
+    link.load([stub.id, stub.id])
+    await settle()
+    expect(listFiles(doc).find((e) => e.id === stub.id)!.stub).toBeUndefined()
+  })
+
+  it('imports 30,000 files without a quadratic path lookup', async () => {
+    const folder = bigFolder(30_000)
+    const doc = new Y.Doc()
+    const started = performance.now()
+    const link = linkFolder(doc, folder)
+    await settle()
+    expect(link.status.get().state).toBe('live')
+    expect(listFiles(doc)).toHaveLength(30_001)
+    expect(performance.now() - started).toBeLessThan(15_000)
   })
 })

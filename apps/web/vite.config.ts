@@ -1,4 +1,15 @@
-import { readFileSync, rmSync, readdirSync, writeFileSync } from 'node:fs'
+import {
+  cpSync,
+  createReadStream,
+  existsSync,
+  readFileSync,
+  rmSync,
+  readdirSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs'
+import { createRequire } from 'node:module'
+import { dirname, extname, join, normalize, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
@@ -55,8 +66,49 @@ self.addEventListener('fetch',event=>{const url=new URL(event.request.url);if(ev
     },
   }
 }
+/**
+ * Excalidraw loads its fonts from `${EXCALIDRAW_ASSET_PATH}fonts/...` and otherwise from a
+ * CDN. Serve them from this app instead (dev middleware + copied into dist), so the
+ * whiteboard works offline, on a LAN and inside the desktop app's CSP.
+ */
+function excalidrawFonts(): Plugin {
+  const require = createRequire(import.meta.url)
+  // The package exports only its entry (dist/prod/index.js); fonts sit next to it.
+  const fontsDir = join(dirname(require.resolve('@excalidraw/excalidraw')), 'fonts')
+  const prefix = '/excalidraw/fonts/'
+  return {
+    name: 'hydras:excalidraw-fonts',
+    configureServer(server) {
+      server.middlewares.use((req, res, next) => {
+        const url = req.url?.split('?')[0] ?? ''
+        if (!url.startsWith(prefix)) return next()
+        const file = normalize(join(fontsDir, decodeURIComponent(url.slice(prefix.length))))
+        if (!file.startsWith(fontsDir + sep) || !existsSync(file) || !statSync(file).isFile()) {
+          return next()
+        }
+        res.setHeader(
+          'Content-Type',
+          extname(file) === '.woff2' ? 'font/woff2' : 'application/octet-stream',
+        )
+        res.setHeader('Cache-Control', 'public, max-age=31536000, immutable')
+        createReadStream(file).pipe(res)
+      })
+    },
+    closeBundle() {
+      const out = fileURLToPath(new URL('./dist/excalidraw/fonts', import.meta.url))
+      cpSync(fontsDir, out, { recursive: true })
+    },
+  }
+}
+
 export default defineConfig({
-  plugins: [react(), tailwindcss(), excludeWebOnlyAssetsFromDesktop(), offlineShell()],
+  plugins: [
+    react(),
+    tailwindcss(),
+    excalidrawFonts(),
+    excludeWebOnlyAssetsFromDesktop(),
+    offlineShell(),
+  ],
   define: { __APP_VERSION__: JSON.stringify(version) },
   server: { port: 5173, strictPort: true },
   // Keep Tauri's CLI output readable and expose TAURI_ENV_* to the app.

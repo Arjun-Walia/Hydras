@@ -85,8 +85,13 @@ Settings are saved per device and validated on load.
 **Open folder…** (start screen, file tree, or `Ctrl+K`) turns a folder on your disk into a
 room. The person who opens it hosts the folder; collaborators join with the link.
 
-- Imports every text file under the folder, honouring `.gitignore`; skips `.git`,
-  `node_modules`, `target`, `dist`, `build`, binaries and files over 1 MB.
+- Lists every text file under the folder (up to 100,000), honouring `.gitignore`; skips
+  `.git`, `node_modules`, `target`, `dist`, `build`, binaries and files over 1 MB.
+- **Big codebases open instantly.** Only the shallowest files (up to 2,000 / 20 MB) are
+  read up front; everything else appears in the tree straight away and loads from the
+  host's disk the moment anyone opens it. A file that hasn't loaded yet is never written
+  back to disk. Quick open (`Ctrl+K`) ranks matches over 100k paths and renders only the
+  top 50, and the file list no longer re-renders on every keystroke.
 - Edits from anyone in the room are written to disk (atomic writes, debounced). Changes
   made on disk by git, a formatter, another editor or the terminal flow back into the room
   as minimal diffs, so open editors and other people's cursors survive.
@@ -98,31 +103,52 @@ room. The person who opens it hosts the folder; collaborators join with the link
 - In the browser this works in Chrome / Edge (File System Access API). After a reload the
   browser asks for permission again via a **Reconnect folder** button.
 
+## Whiteboard
+
+**Board** (next to **Code** in the title bar) opens the room's shared whiteboard, built on
+[Excalidraw](https://github.com/excalidraw/excalidraw) (MIT). Shapes, text, arrows and
+images sync through the same room as the code, so the board works offline and merges on
+reconnect; everyone's pointer is shown live. Edits merge per shape by version (the rule
+Excalidraw's own collaboration uses), deleted shapes stay deleted, and undo on the board
+only undoes your own strokes. It is styled with the Hydras theme (clean lines, the app's
+colours and fonts) and its fonts are served by Hydras, so nothing loads from a CDN.
+
 ## Terminal
 
-`` Ctrl+` `` (or **Terminal** in the status bar) opens real shells on a native PTY (ConPTY
+`` Ctrl+` `` (or the terminal button in the title bar / status bar) opens real shells on a native PTY (ConPTY
 on Windows): PowerShell 7 if installed, else Windows PowerShell; `$SHELL` on macOS/Linux.
 They start in the opened folder, support tabs, resize, colors and restart. Terminals are
 local to you, not shared in the room, and need the desktop app: a browser tab cannot start
 processes, and the panel says so.
 
-## Desktop app (Windows)
+## Desktop app (Windows): one-click install
 
-`apps/desktop` is a [Tauri 2](https://tauri.app) shell around the same web build: one
-native window, WebView2, no extra native permissions (`core:default` only). At `/` it
-shows a start screen (new room, join by link, settings) instead of the marketing page.
+Download `Hydras_<version>_x64-setup.exe` and run it. That's the whole install: no wizard,
+no admin prompt. It installs for your user, adds Start menu and desktop shortcuts, and
+opens Hydras straight into a one-step setup (pick the name people see on your cursor).
+Run the installer with `/FULL` for the classic wizard (choose a folder), or `/S` for a
+silent install.
+
+`apps/desktop` is a [Tauri 2](https://tauri.app) shell around the same web build. It adds
+what a browser can't: opening real folders, a real terminal, and a bundled sync server
+(`lan/`, Node + Hocuspocus) so one machine can host a protected workspace for the room
+with no other setup. The home screen offers: open a project folder, host a protected
+workspace, join with a link, or a quick room.
 
 ```bash
-pnpm release:desktop   # needs Rust (stable) + MSVC build tools + WebView2
+pnpm --filter @hydras/web build
+node scripts/package-lan.mjs         # bundled sync server for the installer
+pnpm --filter @hydras/desktop build:desktop   # needs Rust (stable) + MSVC build tools
 ```
 
-This writes `Hydras_<version>_x64-setup.exe` (NSIS, per-user install) and
-`Hydras_<version>_x64_en-US.msi` under `apps/desktop/src-tauri/target/release/bundle/`,
-then copies them to `apps/web/public/downloads/` with a `manifest.json` (size + SHA-256)
-that the landing page's Download section reads.
+This writes `apps/desktop/src-tauri/target/release/bundle/nsis/Hydras_<version>_x64-setup.exe`.
+The one-click flow lives in `apps/desktop/src-tauri/installer/installer.nsi`, Tauri's
+NSIS template with two changes (passive install by default, launch when done).
+`pnpm release:stage` copies the installer to `apps/web/public/downloads/` with a
+`manifest.json` (size + SHA-256) for the landing page's download button.
 
-To ship a release, push a tag like `v0.1.0`: `.github/workflows/release.yml` builds the
-installers on Windows and attaches them to a **draft** GitHub release for you to review.
+To ship a release, push a tag like `v0.2.0`: `.github/workflows/release.yml` builds the
+installer on Windows and attaches it to a **draft** GitHub release for you to review.
 Set the repository variable `VITE_SYNC_URL` so the desktop build points at your hosted
 sync server.
 

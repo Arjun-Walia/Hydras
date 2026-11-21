@@ -16,7 +16,7 @@ use std::sync::Mutex;
 use tauri::{AppHandle, Manager, State};
 use tauri_plugin_dialog::DialogExt;
 
-const MAX_LIST: usize = 20_000;
+const MAX_LIST: usize = 100_000;
 const MAX_TEXT_BYTES: u64 = 1_000_000;
 const ALLOWLIST_FILE: &str = "folders.json";
 

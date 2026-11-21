@@ -3,6 +3,8 @@
  * Invariant: imports nothing from React; the UI consumes Readable values and methods.
  */
 export { createRoom } from './room'
+export { MAX_BOARD_FILE_BYTES, mergeElements } from './board'
+export type { BoardBinding, BoardElement, BoardFile } from './board'
 export type {
   FileBinding,
   FolderState,

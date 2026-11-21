@@ -1,0 +1,96 @@
+/*
+ * Hydras skin for the Excalidraw whiteboard. Excalidraw exposes its chrome as CSS custom
+ * properties; we point them at the Hydras tokens so the board reads as part of the app
+ * (same surfaces, hairlines, radius, accent and type) rather than a stock Excalidraw.
+ * The canvas background is transparent, so the app's own --bg shows through.
+ */
+
+.hydras-board {
+  background: var(--bg);
+  /* Faint dot grid under the transparent canvas, in the editor's hairline colour. */
+  background-image: radial-gradient(var(--line-soft) 1px, transparent 1.2px);
+  background-size: 22px 22px;
+}
+
+.hydras-board .excalidraw,
+.hydras-board .excalidraw.theme--dark {
+  --ui-font: var(--font-ui);
+  --color-primary: var(--accent);
+  --color-primary-darker: color-mix(in oklab, var(--accent) 82%, var(--fg));
+  --color-primary-darkest: color-mix(in oklab, var(--accent) 68%, var(--fg));
+  --color-primary-hover: color-mix(in oklab, var(--accent) 88%, var(--fg));
+  --color-primary-light: var(--accent-soft);
+  --color-brand-hover: color-mix(in oklab, var(--accent) 88%, var(--fg));
+  --color-brand-active: color-mix(in oklab, var(--accent) 76%, var(--fg));
+  --color-surface-primary-container: var(--accent-soft);
+  --color-on-primary-container: var(--accent);
+  --color-selection: var(--accent);
+  --link-color: var(--accent);
+
+  --island-bg-color: var(--surface);
+  --popup-bg-color: var(--surface-raised);
+  --sidebar-bg-color: var(--surface-soft);
+  --default-bg-color: var(--bg);
+  --input-bg-color: var(--surface-soft);
+  --overlay-bg-color: color-mix(in oklab, var(--bg) 70%, transparent);
+  --color-surface-lowest: var(--bg);
+  --color-surface-low: var(--surface-soft);
+  --color-surface-mid: var(--surface);
+  --color-surface-high: var(--surface-raised);
+  --button-hover-bg: var(--surface-raised);
+  --button-gray-1: var(--surface-raised);
+  --button-gray-2: var(--line-soft);
+  --button-gray-3: var(--line);
+
+  --text-primary-color: var(--fg);
+  --color-on-surface: var(--fg);
+  --icon-fill-color: var(--muted);
+  --default-border-color: var(--line);
+
+  --border-radius-md: var(--radius-chrome);
+  --border-radius-lg: var(--radius-dialog);
+  --shadow-island: 0 0 0 1px var(--line-soft), 0 10px 30px -18px rgb(0 0 0 / 0.55);
+
+  font-family: var(--font-ui);
+}
+
+/* Toolbar and panels: hairline-bordered islands like the rest of the app. */
+.hydras-board .excalidraw .Island {
+  border: 1px solid var(--line-soft);
+  box-shadow: var(--shadow-island);
+}
+.hydras-board .excalidraw .App-toolbar .ToolIcon__icon {
+  border-radius: var(--radius-chrome);
+}
+.hydras-board .excalidraw .ToolIcon_type_radio:checked + .ToolIcon__icon,
+.hydras-board .excalidraw .ToolIcon_type_checkbox:checked + .ToolIcon__icon {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.hydras-board .excalidraw .ToolIcon__keybinding {
+  color: var(--faint);
+  font-family: var(--font-ui);
+}
+
+/* Welcome screen in the Hydras voice. */
+.hydras-board .excalidraw .welcome-screen-center__heading {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 26px;
+  color: var(--fg);
+}
+.hydras-board .excalidraw .welcome-screen-decor,
+.hydras-board .excalidraw .welcome-screen-decor-hint {
+  color: var(--faint);
+  font-family: var(--font-ui);
+}
+.hydras-board .hydras-board__mark {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--fg);
+  font-family: var(--font-ui);
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}

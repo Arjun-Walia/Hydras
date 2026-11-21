@@ -101,10 +101,21 @@ export function TerminalPanel() {
             />
           ))
         ) : (
-          <p className="px-4 py-3 text-[13px] text-muted">
-            Terminals run real shells, which a browser tab can't start. Open this room in the Hydras
-            desktop app to get a terminal in your project folder.
-          </p>
+          <div className="flex h-full flex-col items-start justify-center gap-3 px-5 py-4">
+            <p className="max-w-[60ch] text-[13px] text-muted">
+              Terminals run a real shell (PowerShell, bash, zsh) in your project folder. A browser
+              tab isn't allowed to start programs, so the terminal lives in the Hydras desktop app.
+              Install it in one click, then open this room there.
+            </p>
+            <a
+              href="https://github.com/Arjun-Walia/Hydras/releases/latest"
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex h-8 items-center gap-2 rounded-[var(--radius-chrome)] bg-accent px-3 text-[12.5px] font-semibold text-[var(--accent-ink)] hover:opacity-90"
+            >
+              <SquareTerminal size={13} /> Get the desktop app
+            </a>
+          </div>
         )}
       </div>
     </section>

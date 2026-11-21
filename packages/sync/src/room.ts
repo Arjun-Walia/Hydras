@@ -15,7 +15,8 @@ import { captureWorkspace, recoverWorkspace, type WorkspaceSnapshot } from './re
 import { IndexeddbPersistence } from 'y-indexeddb'
 import type { Awareness } from 'y-protocols/awareness'
 import { HocuspocusProvider, HocuspocusProviderWebsocket } from '@hocuspocus/provider'
-import type { FileEntry, Peer, Presence, UserIdentity } from '@hydras/shared'
+import type { BoardPointer, FileEntry, Peer, Presence, UserIdentity } from '@hydras/shared'
+import { createBoardBinding, type BoardBinding } from './board'
 import {
   initialConnectionState,
   reduceConnection,
@@ -38,6 +39,10 @@ import { createUndoManager, emptyUndoState, readUndoState, type UndoState } from
 
 const RECENT_UPDATE_LIMIT = 24
 const INSPECTOR_THROTTLE_MS = 200
+/** Local checkpoint debounce: grows with how long the last full encode took. */
+const CHECKPOINT_MIN_MS = 300
+const CHECKPOINT_MAX_MS = 5_000
+const CHECKPOINT_COST_FACTOR = 20
 
 /** Everything the editor needs to bind one file. Opaque to the UI layer. */
 export interface FileBinding {
@@ -91,6 +96,10 @@ export interface Room {
   readonly inspector: Readable<InspectorSnapshot>
   /** Undo state of the file most recently passed to `setActiveFile`. */
   readonly activeUndo: Readable<UndoState>
+  /** The room's shared whiteboard. */
+  readonly board: BoardBinding
+  /** Publish (or clear) this user's pointer on the whiteboard. */
+  setBoardPointer(pointer: BoardPointer | null): void
   /** Resolves once the local IndexedDB copy has been loaded. */
   readonly ready: Promise<void>
   /** The folder on this machine mirrored into the room, if any. */
@@ -121,6 +130,7 @@ function readPeers(awareness: Awareness): Peer[] {
       activeFile: presence.activeFile ?? null,
       viewport: presence.viewport ?? null,
       status: presence.status ?? 'active',
+      boardPointer: presence.boardPointer ?? null,
       clientId,
       isSelf: clientId === awareness.clientID,
     })
@@ -159,13 +169,23 @@ export function createRoom({
   const localSave = writable<'loading' | 'saving' | 'saved' | 'error'>('loading')
   let saveTimer: ReturnType<typeof setTimeout> | null = null
   let revision = 0
+  /** Size and cost of the last full encode; big rooms checkpoint less often. */
+  let lastEncodedBytes = 0
+  let checkpointDelay = CHECKPOINT_MIN_MS
   const persistCheckpoint = () => {
     saveTimer = null
     if (!storage.db) return
     const savedRevision = revision
     try {
+      const started = performance.now()
+      const encoded = Y.encodeStateAsUpdate(doc)
+      lastEncodedBytes = encoded.byteLength
+      checkpointDelay = Math.min(
+        CHECKPOINT_MAX_MS,
+        Math.max(CHECKPOINT_MIN_MS, (performance.now() - started) * CHECKPOINT_COST_FACTOR),
+      )
       const tx = storage.db.transaction('custom', 'readwrite')
-      tx.objectStore('custom').put(Y.encodeStateAsUpdate(doc), 'durable-checkpoint')
+      tx.objectStore('custom').put(encoded, 'durable-checkpoint')
       tx.oncomplete = () => {
         if (revision === savedRevision) localSave.set('saved')
       }
@@ -196,6 +216,7 @@ export function createRoom({
   })
 
   const bindings = new Map<string, FileBinding>()
+  const board = createBoardBinding(doc)
   const folder = writable<FolderState | null>(null)
   let folderLink: FolderLink | null = null
   let stopFolderStatus: (() => void) | null = null
@@ -210,7 +231,8 @@ export function createRoom({
     inspector.update((current) => ({
       ...current,
       stateVector: describeStateVector(doc),
-      docBytes: docSizeBytes(doc),
+      // Reuse the checkpoint's encode; encoding a big room twice per burst is expensive.
+      docBytes: lastEncodedBytes || docSizeBytes(doc),
     }))
   }
 
@@ -218,9 +240,9 @@ export function createRoom({
     revision++
     localSave.set('saving')
     if (saveTimer) clearTimeout(saveTimer)
-    saveTimer = setTimeout(persistCheckpoint, 300)
+    saveTimer = setTimeout(persistCheckpoint, checkpointDelay)
     const kind = classifyOrigin(origin, { remote: provider, storage })
-    if (kind === 'local' || kind === 'files') dispatch({ type: 'local-change' })
+    if (kind === 'local' || kind === 'files' || kind === 'board') dispatch({ type: 'local-change' })
     const entry: UpdateLogEntry = {
       seq: ++updateSeq,
       at: Date.now(),
@@ -235,10 +257,31 @@ export function createRoom({
   }
   doc.on('update', onUpdate)
 
-  const onFilesChanged = () => fileList.set(files.listFiles(doc))
+  // Text edits happen inside file records too; only re-list when what the list shows changes.
+  const onFilesChanged = (events: Y.YEvent<Y.AbstractType<unknown>>[]) => {
+    const listed = events.some(
+      (event) =>
+        event.path.length === 0 ||
+        (event.path.length === 1 &&
+          [...(event as Y.YMapEvent<unknown>).keysChanged].some((k) => files.LISTED_FIELDS.has(k))),
+    )
+    if (listed) fileList.set(files.listFiles(doc))
+  }
   files.filesMap(doc).observeDeep(onFilesChanged)
 
-  const onAwarenessChange = () => peers.set(readPeers(awareness))
+  /** Files anyone in the room has open; the folder host loads those that are stubs. */
+  const viewedFiles = () => {
+    const ids = new Set<string>()
+    awareness.getStates().forEach((state) => {
+      const id = (state as Partial<Presence>).activeFile
+      if (typeof id === 'string') ids.add(id)
+    })
+    return ids
+  }
+  const onAwarenessChange = () => {
+    peers.set(readPeers(awareness))
+    folderLink?.load(viewedFiles())
+  }
   awareness.on('change', onAwarenessChange)
 
   // --- connection wiring --------------------------------------------------------------
@@ -312,6 +355,10 @@ export function createRoom({
     peers,
     inspector,
     activeUndo,
+    board,
+    setBoardPointer(pointer) {
+      awareness.setLocalStateField('boardPointer', pointer)
+    },
     ready,
     folder,
     linkFolder(host, options) {
@@ -323,6 +370,7 @@ export function createRoom({
       const publish = () => folder.set({ name: link.folderName, status: link.status.get() })
       publish()
       stopFolderStatus = link.status.subscribe(publish)
+      link.load(viewedFiles())
     },
     async unlinkFolder() {
       const link = folderLink
@@ -354,6 +402,7 @@ export function createRoom({
       activeFileId = id
       if (id) bindFile(id)
       awareness.setLocalStateField('activeFile', id)
+      if (id) folderLink?.load([id])
       refreshActiveUndo()
     },
     undo: (id) => {

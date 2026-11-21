@@ -17,9 +17,26 @@
  * - Binary, oversized and ignored files are skipped and counted.
  * - Echo guard: changes read from disk use DISK_ORIGIN and are not written back; writes
  *   we made ourselves are recognised when the watcher reports them and ignored.
+ *
+ * Big codebases (lazy loading):
+ * - Every eligible file is listed in the room immediately, but only files already loaded
+ *   in the room plus the shallowest files up to `eagerFiles` / `eagerBytes` have their
+ *   text read up front. The rest are stubs: empty text, `stub: true`. A stub is loaded
+ *   from disk as soon as anyone opens it (`load(ids)`, driven by who is viewing what).
+ * - A stub is NEVER written back to disk: its empty text is not the file's content.
+ * - Bulk lookups go through one path index instead of scanning the map per file.
  */
 import type * as Y from 'yjs'
-import { createFile, deleteFile, filesMap, findFileByPath, getFileText, restoreFile } from './files'
+import {
+  createFile,
+  deleteFile,
+  filesMap,
+  findFileByPath,
+  getFileText,
+  pathIndex,
+  restoreFile,
+  type PathIndex,
+} from './files'
 import { writable, type Readable } from './observable'
 import { DISK_ORIGIN } from './origins'
 import { applyTextUpdate } from './text-diff'
@@ -44,10 +61,16 @@ export interface FolderHost {
 }
 
 export const MIRROR_LIMITS = {
-  maxFiles: 5000,
+  /** Files listed in the room (as loaded files or stubs). */
+  maxFiles: 100_000,
   maxFileBytes: 1_000_000,
   readConcurrency: 16,
+  /** Files whose text is read during import; the rest load when opened. */
+  eagerFiles: 2_000,
+  eagerBytes: 20_000_000,
 } as const
+
+const depthOf = (path: string) => path.split('/').length
 
 export type MirrorStatus =
   | { state: 'importing'; done: number; total: number }
@@ -57,6 +80,8 @@ export type MirrorStatus =
 export interface FolderLink {
   readonly folderName: string
   readonly status: Readable<MirrorStatus>
+  /** Load these files' text from disk if they are still stubs. Safe to call repeatedly. */
+  load(ids: Iterable<string>): void
   /** Write any pending room edits to disk now (used before closing). */
   flush(): Promise<void>
   unlink(): void
@@ -105,6 +130,31 @@ async function mapLimit<T, R>(
   return results
 }
 
+/** Which listed files to read during import: already-loaded ones, then shallowest first. */
+function pickEager(doc: Y.Doc, entries: readonly FolderEntry[], index: PathIndex): Set<string> {
+  const eager = new Set<string>()
+  for (const entry of entries) {
+    const id = index.visible.get(entry.path)
+    if (id && filesMap(doc).get(id)?.get('stub') !== true) eager.add(entry.path)
+  }
+  let bytes = 0
+  const byDepth = [...entries].sort(
+    (a, b) => depthOf(a.path) - depthOf(b.path) || (a.path < b.path ? -1 : 1),
+  )
+  for (const entry of byDepth) {
+    if (eager.size >= MIRROR_LIMITS.eagerFiles) break
+    if (eager.has(entry.path) || bytes + entry.size > MIRROR_LIMITS.eagerBytes) continue
+    eager.add(entry.path)
+    bytes += entry.size
+  }
+  return eager
+}
+
+/** Never write a stub (its empty text is not the file's content) or a trashed file. */
+function isWritable(record: Y.Map<unknown> | undefined): record is Y.Map<unknown> {
+  return record != null && record.get('deletedAt') == null && record.get('stub') !== true
+}
+
 export function linkFolder(doc: Y.Doc, host: FolderHost, options: LinkOptions = {}): FolderLink {
   const debounceMs = options.writeDebounceMs ?? 250
   const status = writable<MirrorStatus>({ state: 'importing', done: 0, total: 0 })
@@ -112,17 +162,23 @@ export function linkFolder(doc: Y.Doc, host: FolderHost, options: LinkOptions = 
   const onDisk = new Map<string, string>()
   const eolByPath = new Map<string, LineEnding>()
   const pendingWrites = new Map<string, ReturnType<typeof setTimeout>>()
+  /** Stub ids with a disk read in flight, so repeated requests don't pile up. */
+  const loading = new Set<string>()
+  /** Stub ids requested before the import finished. */
+  const queued = new Set<string>()
   let skipped = 0
+  /** Files listed in the room from this folder (loaded or stub). */
+  let listed = 0
   let lastWrite: number | null = null
   let active = true
+  let importing = true
   let stopWatching: (() => void) | null = null
 
   const report = (message: string, path?: string) => options.onError?.(message, path)
 
   const setLive = () => {
     if (!active) return
-    const files = [...onDisk.keys()].length
-    status.set({ state: 'live', files, skipped, lastWrite })
+    status.set({ state: 'live', files: Math.max(listed, onDisk.size), skipped, lastWrite })
   }
 
   // ---- disk -> room ------------------------------------------------------------------
@@ -133,8 +189,26 @@ export function linkFolder(doc: Y.Doc, host: FolderHost, options: LinkOptions = 
     return { kind: 'text', text }
   }
 
-  const applyFromDisk = (path: string, result: ReadResult) => {
-    const id = findFileByPath(doc, path)
+  const readEntry = async (path: string): Promise<ReadResult> => {
+    try {
+      return normalizeRead(path, await host.read(path))
+    } catch (error) {
+      report(`Could not read ${path}: ${errorMessage(error)}`, path)
+      return { kind: 'binary' }
+    }
+  }
+
+  /** Put disk text into file `id` (minimal diff) and clear its stub flag. */
+  const fill = (id: string, text: string) => {
+    const record = filesMap(doc).get(id)
+    const yText = getFileText(doc, id)
+    if (!record || !yText) return
+    applyTextUpdate(yText, text, DISK_ORIGIN)
+    if (record.get('stub') === true) record.delete('stub')
+  }
+
+  const applyFromDisk = (path: string, result: ReadResult, index?: PathIndex) => {
+    const id = index ? (index.visible.get(path) ?? null) : findFileByPath(doc, path)
     if (result.kind === 'missing') {
       onDisk.delete(path)
       if (id) doc.transact(() => deleteFile(doc, id), DISK_ORIGIN)
@@ -143,18 +217,18 @@ export function linkFolder(doc: Y.Doc, host: FolderHost, options: LinkOptions = 
     if (result.kind === 'binary') return
     onDisk.set(path, result.text)
     if (id) {
-      const text = getFileText(doc, id)
-      if (text) applyTextUpdate(text, result.text, DISK_ORIGIN)
+      doc.transact(() => fill(id, result.text), DISK_ORIGIN)
       return
     }
-    const trashed = findTrashedByPath(doc, path)
+    const trashed = index ? (index.trashed.get(path) ?? null) : findTrashedByPath(doc, path)
     doc.transact(() => {
       if (trashed) {
         restoreFile(doc, trashed)
-        const text = getFileText(doc, trashed)
-        if (text) applyTextUpdate(text, result.text, DISK_ORIGIN)
+        fill(trashed, result.text)
+        index?.visible.set(path, trashed)
       } else {
-        createFile(doc, { name: path, content: result.text })
+        const created = createFile(doc, { name: path, content: result.text })
+        index?.visible.set(path, created)
       }
     }, DISK_ORIGIN)
   }
@@ -165,33 +239,80 @@ export function linkFolder(doc: Y.Doc, host: FolderHost, options: LinkOptions = 
     skipped += all.length - eligible.length
     const entries = eligible.slice(0, MIRROR_LIMITS.maxFiles)
     skipped += eligible.length - entries.length
-    status.set({ state: 'importing', done: 0, total: entries.length })
+
+    const index = pathIndex(doc)
+    const eager = pickEager(doc, entries, index)
+    const toRead = entries.filter((e) => eager.has(e.path))
+    status.set({ state: 'importing', done: 0, total: toRead.length })
 
     let done = 0
-    const reads = await mapLimit(entries, MIRROR_LIMITS.readConcurrency, async (entry) => {
-      let result: ReadResult
-      try {
-        result = normalizeRead(entry.path, await host.read(entry.path))
-      } catch (error) {
-        report(`Could not read ${entry.path}: ${errorMessage(error)}`, entry.path)
-        result = { kind: 'binary' }
-      }
+    const reads = await mapLimit(toRead, MIRROR_LIMITS.readConcurrency, async (entry) => {
+      const result = await readEntry(entry.path)
       done++
-      if (active && done % 50 === 0) status.set({ state: 'importing', done, total: entries.length })
+      if (active && done % 50 === 0) status.set({ state: 'importing', done, total: toRead.length })
       return [entry.path, result] as const
     })
     if (!active) return
 
+    listed = 0
     doc.transact(() => {
       for (const [path, result] of reads) {
-        if (result.kind === 'text') applyFromDisk(path, result)
-        else skipped++
+        if (result.kind === 'text') {
+          applyFromDisk(path, result, index)
+          listed++
+        } else skipped++
+      }
+      for (const entry of entries) {
+        if (eager.has(entry.path)) continue
+        const id = index.visible.get(entry.path)
+        listed++
+        if (id) {
+          filesMap(doc).get(id)?.set('size', entry.size)
+        } else if (!index.trashed.has(entry.path)) {
+          // A trashed file at this path stays in Trash; restoring it reloads it later.
+          const created = createFile(doc, { name: entry.path, stub: true, size: entry.size })
+          index.visible.set(entry.path, created)
+        }
       }
     }, DISK_ORIGIN)
   }
 
+  const loadOne = (id: string, path: string) => {
+    loading.add(id)
+    void readEntry(path).then((result) => {
+      loading.delete(id)
+      if (!active) return
+      const current = filesMap(doc).get(id)
+      if (!current || current.get('stub') !== true || current.get('name') !== path) return
+      if (result.kind === 'text') {
+        onDisk.set(path, result.text)
+        doc.transact(() => fill(id, result.text), DISK_ORIGIN)
+      } else if (result.kind === 'missing') {
+        doc.transact(() => deleteFile(doc, id), DISK_ORIGIN)
+      } else {
+        report(`${path} is not a text file, so it can't be opened in the editor.`, path)
+      }
+      setLive()
+    })
+  }
+
+  /** Read requested stubs' text from disk. Non-stubs and unknown ids are ignored. */
+  const loadStubs = (ids: Iterable<string>) => {
+    for (const id of ids) {
+      const record = filesMap(doc).get(id)
+      const path = record?.get('name')
+      if (!record || record.get('stub') !== true || typeof path !== 'string') continue
+      if (loading.has(id)) continue
+      if (importing) queued.add(id)
+      else loadOne(id, path)
+    }
+  }
+
   const onDiskChange = (paths: string[]) => {
     for (const path of new Set(paths)) {
+      const id = findFileByPath(doc, path)
+      // A stub has no text in the room yet; it reads the latest disk copy when opened.
+      if (id && filesMap(doc).get(id)?.get('stub') === true) continue
       host
         .read(path)
         .then((raw) => {
@@ -221,8 +342,7 @@ export function linkFolder(doc: Y.Doc, host: FolderHost, options: LinkOptions = 
 
   const scheduleWrite = (id: string) => {
     const record = filesMap(doc).get(id)
-    const path = record?.get('name')
-    if (typeof path !== 'string' || record?.get('deletedAt') != null) return
+    if (!isWritable(record) || typeof record.get('name') !== 'string') return
     const existing = pendingWrites.get(id)
     if (existing) clearTimeout(existing)
     pendingWrites.set(
@@ -232,7 +352,7 @@ export function linkFolder(doc: Y.Doc, host: FolderHost, options: LinkOptions = 
         const current = filesMap(doc).get(id)
         const currentPath = current?.get('name')
         const text = getFileText(doc, id)
-        if (typeof currentPath === 'string' && text && current?.get('deletedAt') == null) {
+        if (isWritable(current) && typeof currentPath === 'string' && text) {
           void writeNow(currentPath, text.toString())
         }
       }, debounceMs),
@@ -240,7 +360,7 @@ export function linkFolder(doc: Y.Doc, host: FolderHost, options: LinkOptions = 
   }
 
   const onRoomChange = (events: Y.YEvent<Y.AbstractType<unknown>>[], tx: Y.Transaction) => {
-    if (tx.origin === DISK_ORIGIN || !active || status.get().state === 'importing') return
+    if (tx.origin === DISK_ORIGIN || !active || importing) return
     const touched = new Set<string>()
     for (const event of events) {
       const [first] = event.path
@@ -255,26 +375,35 @@ export function linkFolder(doc: Y.Doc, host: FolderHost, options: LinkOptions = 
   // ---- lifecycle ---------------------------------------------------------------------
   void importAll()
     .then(() => {
+      importing = false
       if (!active) return
       filesMap(doc).observeDeep(onRoomChange)
       stopWatching = host.watch(onDiskChange)
       setLive()
+      const waiting = [...queued]
+      queued.clear()
+      loadStubs(waiting)
     })
     .catch((error: unknown) => {
+      importing = false
       if (active) status.set({ state: 'error', message: errorMessage(error) })
     })
 
   return {
     folderName: host.name,
     status,
+    load: loadStubs,
     async flush() {
       const ids = [...pendingWrites.keys()]
       for (const id of ids) {
         clearTimeout(pendingWrites.get(id))
         pendingWrites.delete(id)
-        const path = filesMap(doc).get(id)?.get('name')
+        const record = filesMap(doc).get(id)
+        const path = record?.get('name')
         const text = getFileText(doc, id)
-        if (typeof path === 'string' && text) await writeNow(path, text.toString())
+        if (isWritable(record) && typeof path === 'string' && text) {
+          await writeNow(path, text.toString())
+        }
       }
     },
     unlink() {

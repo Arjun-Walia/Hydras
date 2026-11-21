@@ -15,7 +15,7 @@ const IGNORED_DIRS = new Set([
   '.venv',
   '__pycache__',
 ])
-const MAX_LIST = 20_000
+const MAX_LIST = 100_000
 const POLL_MS = 2_500
 const BINARY_SNIFF = 8_000
 

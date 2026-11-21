@@ -26,6 +26,9 @@ import { useCurrentRoom } from '../../app/room-context'
 import { useSettingsStore } from '../../app/settings-store'
 import { useUiStore } from '../../app/ui-store'
 import { useReadable } from '../../hooks/use-readable'
+import { rankFiles } from '../../app/file-search'
+
+const MAX_FILE_RESULTS = 50
 
 export function CommandPalette() {
   const room = useCurrentRoom()
@@ -35,6 +38,18 @@ export function CommandPalette() {
   const setOpen = useUiStore((s) => s.setPaletteOpen)
   const [search, setSearch] = useState('')
   const names = useMemo(() => resolveDisplayNames(files), [files])
+  const searchable = useMemo(
+    () =>
+      files
+        .filter((f) => f.deletedAt === null)
+        .map((f) => ({ id: f.id, path: names.get(f.id) ?? f.name })),
+    [files, names],
+  )
+  // Rank ourselves and hand cmdk only the top matches: it renders every item it gets.
+  const fileMatches = useMemo(
+    () => rankFiles(searchable, search, MAX_FILE_RESULTS),
+    [searchable, search],
+  )
 
   const run = (fn: () => void) => () => {
     fn()
@@ -64,18 +79,16 @@ export function CommandPalette() {
         </Command.Empty>
 
         <Group heading="Files">
-          {files
-            .filter((f) => f.deletedAt === null)
-            .map((file) => (
-              <Item
-                key={file.id}
-                value={`open ${names.get(file.id)}`}
-                onSelect={run(() => ui().openFile(file.id))}
-                icon={<FileCode2 size={14} />}
-              >
-                {names.get(file.id)}
-              </Item>
-            ))}
+          {fileMatches.map((file) => (
+            <Item
+              key={file.id}
+              value={`open ${file.path} ${file.id}`}
+              onSelect={run(() => ui().openFile(file.id))}
+              icon={<FileCode2 size={14} />}
+            >
+              {file.path}
+            </Item>
+          ))}
           {search.trim().length > 0 && (
             <Item
               value={`new file ${search}`}

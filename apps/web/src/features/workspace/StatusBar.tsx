@@ -52,6 +52,12 @@ export function StatusBar() {
       <span>
         {peers.length} {peers.length === 1 ? 'collaborator' : 'collaborators'}
       </span>
+      <LocalSave />
+      {room.readOnly && (
+        <span className="rounded-full bg-surface-raised px-2 py-px text-[11px] text-muted">
+          View only
+        </span>
+      )}
       {cursor && (
         <span>
           Ln {cursor.line}, Col {cursor.column}
@@ -111,6 +117,32 @@ function FolderStatus() {
       <Icon size={12} className={cn(state === 'importing' && 'animate-spin')} />
       <b className="font-medium text-fg">{folder.name}</b>
       <span className="truncate">{describeMirror(folder.status)}</span>
+    </span>
+  )
+}
+
+/** Whether this device's copy of the room is safely stored (IndexedDB checkpoint). */
+function LocalSave() {
+  const room = useCurrentRoom()
+  const state = useReadable(room.localSave)
+  if (state === 'error') {
+    return (
+      <span className="flex items-center gap-1.5 text-danger" role="alert">
+        <AlertTriangle size={12} /> Local save failed: export a backup from Room
+      </span>
+    )
+  }
+  return (
+    <span
+      className="hidden items-center gap-1.5 md:flex"
+      title="Your copy is stored on this device"
+    >
+      {state === 'saved' ? (
+        <Check size={12} className="text-accent" />
+      ) : (
+        <Loader2 size={12} className="animate-spin" />
+      )}
+      {state === 'saved' ? 'Saved on this device' : 'Saving…'}
     </span>
   )
 }

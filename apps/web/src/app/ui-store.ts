@@ -11,7 +11,14 @@ export interface CursorPosition {
 
 export type SettingsSection = 'theme' | 'layout' | 'editor' | 'sync' | 'general'
 
+/** What the main area shows: the code editor or the room's shared whiteboard. */
+export type WorkspaceView = 'code' | 'board'
+
 interface UiState {
+  view: WorkspaceView
+  setView(view: WorkspaceView): void
+  roomPanelOpen: boolean
+  setRoomPanelOpen(open: boolean): void
   paletteOpen: boolean
   settingsSection: SettingsSection | null
   openTabs: string[]
@@ -38,6 +45,10 @@ function neighbourAfterClose(tabs: readonly string[], closing: string): string |
 }
 
 export const useUiStore = create<UiState>()((set) => ({
+  view: 'code',
+  setView: (view) => set({ view }),
+  roomPanelOpen: false,
+  setRoomPanelOpen: (roomPanelOpen) => set({ roomPanelOpen }),
   paletteOpen: false,
   settingsSection: null,
   openTabs: [],

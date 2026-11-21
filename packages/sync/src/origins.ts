@@ -12,8 +12,10 @@
 export const LOCAL_ORIGIN: unique symbol = Symbol('hydras.local')
 export const FILES_ORIGIN: unique symbol = Symbol('hydras.files')
 export const DISK_ORIGIN: unique symbol = Symbol('hydras.disk')
+/** Whiteboard (Excalidraw) writes. Text undo ignores them; Excalidraw keeps its own history. */
+export const BOARD_ORIGIN: unique symbol = Symbol('hydras.board')
 
-export type OriginKind = 'local' | 'files' | 'disk' | 'remote' | 'storage'
+export type OriginKind = 'local' | 'files' | 'disk' | 'board' | 'remote' | 'storage'
 
 export function classifyOrigin(
   origin: unknown,
@@ -21,6 +23,7 @@ export function classifyOrigin(
 ): OriginKind {
   if (origin === FILES_ORIGIN) return 'files'
   if (origin === DISK_ORIGIN) return 'disk'
+  if (origin === BOARD_ORIGIN) return 'board'
   if (origin === sources.remote) return 'remote'
   if (origin === sources.storage) return 'storage'
   return 'local'

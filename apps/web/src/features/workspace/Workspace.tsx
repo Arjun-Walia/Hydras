@@ -3,7 +3,7 @@
  * a terminal panel under the editor, status bar. Owns the Room, its folder link and the
  * global shortcuts.
  */
-import { useEffect } from 'react'
+import { lazy, Suspense, useEffect } from 'react'
 import type { UserIdentity } from '@hydras/shared'
 import type { Room } from '@hydras/sync'
 import { FolderSync } from 'lucide-react'
@@ -21,6 +21,9 @@ import { CommandPalette } from '../palette/CommandPalette'
 import { useMergeToasts } from '../presence/use-merge-toasts'
 import { SettingsDialog } from '../settings/SettingsDialog'
 import { TerminalPanel } from '../terminal/TerminalPanel'
+
+/** Excalidraw is large; load it only when someone opens the board. */
+const BoardView = lazy(() => import('../board/BoardView'))
 import { StatusBar } from './StatusBar'
 import { WorkspaceTools } from './WorkspaceTools'
 import { TitleBar } from './TitleBar'
@@ -59,6 +62,7 @@ function RoomWorkspace({ room }: { room: Room }) {
   const showFiles = useSettingsStore((s) => s.layout.showFiles)
   const showInspector = useSettingsStore((s) => s.layout.showInspector)
   const terminalOpen = useUiStore((s) => s.terminalOpen)
+  const view = useUiStore((s) => s.view)
   const folderLink = useFolderLink(room)
   useMergeToasts(room)
 
@@ -80,7 +84,13 @@ function RoomWorkspace({ room }: { room: Room }) {
           <Panel id="editor" minSize="320px">
             <Group orientation="vertical" className="h-full">
               <Panel id="code" minSize="120px">
-                <EditorArea />
+                {view === 'board' ? (
+                  <Suspense fallback={<BoardLoading />}>
+                    <BoardView />
+                  </Suspense>
+                ) : (
+                  <EditorArea />
+                )}
               </Panel>
               {terminalOpen && (
                 <>
@@ -125,6 +135,14 @@ function ReconnectBanner({ state }: { state: FolderLinkState }) {
       >
         Reconnect folder
       </button>
+    </div>
+  )
+}
+
+function BoardLoading() {
+  return (
+    <div className="grid h-full place-items-center text-[13px] text-muted" role="status">
+      Opening the whiteboard…
     </div>
   )
 }

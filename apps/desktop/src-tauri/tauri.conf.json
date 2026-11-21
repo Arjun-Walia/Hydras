@@ -23,12 +23,12 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob:; connect-src 'self' ipc: http://ipc.localhost ws: wss: http: https:"
+      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob:; worker-src 'self' blob:; connect-src 'self' ipc: http://ipc.localhost ws: wss: http: https:"
     }
   },
   "bundle": {
     "active": true,
-    "targets": ["nsis", "msi"],
+    "targets": ["nsis"],
     "publisher": "Hydras",
     "copyright": "Hydras contributors",
     "category": "DeveloperTool",
@@ -46,7 +46,12 @@
         "type": "downloadBootstrapper"
       },
       "nsis": {
-        "installMode": "currentUser"
+        "installMode": "currentUser",
+        "template": "installer/installer.nsi",
+        "displayLanguageSelector": false,
+        "installerIcon": "icons/icon.ico",
+        "startMenuFolder": "Hydras",
+        "compression": "lzma"
       }
     },
     "resources": {

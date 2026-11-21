@@ -63,7 +63,7 @@ export function validateFilePath(raw: string): string {
   return segments.join('/')
 }
 
-/** The visible (not trashed) file at `path`, if any. */
+/** The visible (not trashed) file at `path`, if any. O(files): prefer pathIndex in loops. */
 export function findFileByPath(doc: Y.Doc, path: string): string | null {
   let found: string | null = null
   filesMap(doc).forEach((record, id) => {
@@ -72,6 +72,44 @@ export function findFileByPath(doc: Y.Doc, path: string): string | null {
   })
   return found
 }
+
+export interface PathIndex {
+  /** path -> id of the visible file at that path. */
+  visible: Map<string, string>
+  /** path -> id of a trashed file at that path (restorable). */
+  trashed: Map<string, string>
+}
+
+/**
+ * Index every file by path in one pass. Bulk operations (importing a folder with tens of
+ * thousands of files) must use this instead of findFileByPath, which is a linear scan.
+ */
+export function pathIndex(doc: Y.Doc): PathIndex {
+  const visible = new Map<string, string>()
+  const trashed = new Map<string, string>()
+  filesMap(doc).forEach((record, id) => {
+    const name = record.get('name')
+    if (typeof name !== 'string') return
+    if (record.get('deletedAt') == null) {
+      if (!visible.has(name)) visible.set(name, id)
+    } else if (!trashed.has(name)) trashed.set(name, id)
+  })
+  return { visible, trashed }
+}
+
+/** True while a folder file's contents have not been loaded into the room. */
+export function isStub(doc: Y.Doc, id: string): boolean {
+  return filesMap(doc).get(id)?.get('stub') === true
+}
+
+/** Record fields that change what the file list shows (text edits do not). */
+export const LISTED_FIELDS: ReadonlySet<string> = new Set([
+  'name',
+  'createdAt',
+  'deletedAt',
+  'stub',
+  'size',
+])
 
 function getRecord(doc: Y.Doc, id: string): FileRecord {
   const record = filesMap(doc).get(id)
@@ -84,7 +122,16 @@ function toEntry(id: string, record: FileRecord): FileEntry | null {
   const createdAt = record.get('createdAt')
   const deletedAt = record.get('deletedAt')
   if (typeof name !== 'string' || typeof createdAt !== 'number') return null
-  return { id, name, createdAt, deletedAt: typeof deletedAt === 'number' ? deletedAt : null }
+  const entry: FileEntry = {
+    id,
+    name,
+    createdAt,
+    deletedAt: typeof deletedAt === 'number' ? deletedAt : null,
+  }
+  if (record.get('stub') === true) entry.stub = true
+  const size = record.get('size')
+  if (typeof size === 'number') entry.size = size
+  return entry
 }
 
 export interface CreateFileInput {
@@ -92,6 +139,9 @@ export interface CreateFileInput {
   content?: string
   id?: string
   now?: number
+  /** Create a folder file whose contents load later (see FileEntry.stub). */
+  stub?: boolean
+  size?: number
 }
 
 export function createFile(doc: Y.Doc, input: CreateFileInput): string {
@@ -103,7 +153,9 @@ export function createFile(doc: Y.Doc, input: CreateFileInput): string {
     record.set('name', name)
     record.set('createdAt', input.now ?? Date.now())
     record.set('deletedAt', null)
-    record.set('text', new Y.Text(input.content ?? ''))
+    record.set('text', new Y.Text(input.stub ? '' : (input.content ?? '')))
+    if (input.stub) record.set('stub', true)
+    if (typeof input.size === 'number') record.set('size', input.size)
   }, FILES_ORIGIN)
   return id
 }
