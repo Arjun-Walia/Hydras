@@ -32,6 +32,18 @@ if (window.location.hash.includes('server=')) {
   }
 }
 
+/**
+ * The desktop build and a locally served LAN host open straight into the start screen:
+ * someone who launched Hydras wants a room, not the pitch. `?landing=1` overrides it so
+ * the marketing page stays previewable from `pnpm dev`.
+ */
+function showsStartScreen(): boolean {
+  if (new URLSearchParams(window.location.search).has('landing')) return false
+  if (isDesktopApp()) return true
+  const host = window.location.hostname
+  return host === 'localhost' || host === '127.0.0.1'
+}
+
 export function App() {
   const pathname = usePathname()
   const slug = slugFromPath(pathname)
@@ -45,15 +57,7 @@ export function App() {
   return (
     <>
       <Suspense fallback={<div className="h-full bg-bg" />}>
-        {slug ? (
-          <Room key={slug} slug={slug} />
-        ) : isDesktopApp() ||
-          window.location.hostname === 'localhost' ||
-          window.location.hostname === '127.0.0.1' ? (
-          <StartScreen />
-        ) : (
-          <Landing />
-        )}
+        {slug ? <Room key={slug} slug={slug} /> : showsStartScreen() ? <StartScreen /> : <Landing />}
       </Suspense>
       <Toaster
         theme={themeKind}

@@ -1,9 +1,14 @@
 /**
  * Hero: background video, nav, badge, display headline, subhead, CTAs and the
  * glass-framed product preview. Ported 1:1 from the reference Hero.
+ *
+ * `data-build` marks the pieces the cursor crew assembles (see cursor-crew/). When the
+ * crew is running it owns the entrance, so each piece skips its own fade-up.
  */
 import { Play, Rocket } from 'lucide-react'
 import { motion } from 'motion/react'
+import { useSettingsStore } from '../../app/settings-store'
+import { cursorBuildEnabled } from './cursor-crew/crew'
 import { ASSET, Wordmark } from './shared'
 import { openNewRoom } from './open-room'
 
@@ -15,6 +20,11 @@ const NAV = [
 ] as const
 
 export function Hero() {
+  const reduceMotion = useSettingsStore((s) => s.reduceMotion)
+  const built = cursorBuildEnabled(reduceMotion)
+  /** `false` tells Motion to render at the animate state with no entrance of its own. */
+  const enter = (from: { opacity: number; y: number }) => (built ? false : from)
+
   return (
     <div id="home" className="relative flex min-h-screen flex-col overflow-hidden">
       <video
@@ -50,28 +60,40 @@ export function Hero() {
 
       <main className="relative z-10 mt-10 flex w-full flex-1 flex-col items-center px-4 pb-10">
         <motion.div
-          initial={{ opacity: 0, y: 10 }}
+          initial={enter({ opacity: 0, y: 10 })}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, ease: 'easeOut' }}
           className="mb-4 md:mb-6"
         >
-          <div className="inline-flex items-center gap-1.5 rounded-full border border-border px-4 py-1.5 text-sm text-muted-foreground shadow-[0_2px_8px_rgba(0,0,0,0.03)] backdrop-blur-md">
+          <div
+            data-build="badge"
+            className="inline-flex items-center gap-1.5 rounded-full border border-border px-4 py-1.5 text-sm text-muted-foreground shadow-[0_2px_8px_rgba(0,0,0,0.03)] backdrop-blur-md"
+          >
             <span>Offline-first code editor ✨</span>
           </div>
         </motion.div>
 
         <motion.h1
-          initial={{ opacity: 0, y: 16 }}
+          initial={enter({ opacity: 0, y: 16 })}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.1, ease: 'easeOut' }}
           className="max-w-4xl px-2 text-center font-display text-5xl leading-[0.98] tracking-tight text-foreground md:text-6xl lg:text-[5rem]"
         >
-          <span className="block">Your Team&apos;s Code</span>
-          <span className="mt-1 block">Never Lost</span>
+          <span className="block">
+            <span data-build="line1" className="inline-block">
+              Your Team&apos;s Code
+            </span>
+          </span>
+          <span className="mt-1 block">
+            <span data-build="line2" className="inline-block">
+              Never Lost
+            </span>
+          </span>
         </motion.h1>
 
         <motion.p
-          initial={{ opacity: 0, y: 16 }}
+          data-build="subhead"
+          initial={enter({ opacity: 0, y: 16 })}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.2, ease: 'easeOut' }}
           className="mt-4 max-w-[650px] px-4 text-center text-base leading-relaxed text-muted-foreground md:text-lg"
@@ -81,7 +103,8 @@ export function Hero() {
         </motion.p>
 
         <motion.div
-          initial={{ opacity: 0, y: 16 }}
+          data-build="cta"
+          initial={enter({ opacity: 0, y: 16 })}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.3, ease: 'easeOut' }}
           className="mt-5 flex items-center gap-3"
@@ -103,12 +126,12 @@ export function Hero() {
         </motion.div>
 
         <motion.div
-          initial={{ opacity: 0, y: 30 }}
+          initial={enter({ opacity: 0, y: 30 })}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, delay: 0.5, ease: 'easeOut' }}
           className="mt-8 w-full max-w-5xl shrink-0"
         >
-          <div className="dashboard-glass rounded-2xl p-3 md:p-4">
+          <div data-build="preview" className="dashboard-glass rounded-2xl p-3 md:p-4">
             <img
               src={`${ASSET}/hero-app.png`}
               alt="Hydras workspace: files, a shared editor and the sync inspector"

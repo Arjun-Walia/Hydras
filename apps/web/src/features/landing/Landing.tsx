@@ -7,6 +7,7 @@ import { MotionConfig } from 'motion/react'
 import { useSettingsStore } from '../../app/settings-store'
 import { Bento } from './Bento'
 import { CodeDemo } from './CodeDemo'
+import { CursorCrew } from './cursor-crew/CursorCrew'
 import { CrdtCube } from './CrdtCube'
 import { Footer } from './Footer'
 import { Global } from './Global'
@@ -35,6 +36,7 @@ export function Landing() {
         <Integrations />
         <Scenarios />
         <Footer />
+        <CursorCrew />
       </div>
     </MotionConfig>
   )
