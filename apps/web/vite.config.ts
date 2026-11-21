@@ -2,6 +2,7 @@ import {
   cpSync,
   createReadStream,
   existsSync,
+  mkdirSync,
   readFileSync,
   rmSync,
   readdirSync,
@@ -31,6 +32,23 @@ const isDesktopBuild = Boolean(process.env.TAURI_ENV_PLATFORM)
  *   screen at "/", never the landing page)
  */
 const WEB_ONLY_PUBLIC_DIRS = ['downloads', 'landing']
+
+/** The recorded walkthrough lives in docs/; the site serves a copy from /landing. */
+function landingDemo(): Plugin {
+  const from = fileURLToPath(new URL('../../docs/demo.mp4', import.meta.url))
+  const toPublic = fileURLToPath(new URL('./public/landing/demo.mp4', import.meta.url))
+  const copy = (dest: string) => {
+    if (!existsSync(from)) return
+    mkdirSync(dirname(dest), { recursive: true })
+    cpSync(from, dest)
+  }
+  return {
+    name: 'hydras:landing-demo',
+    buildStart: () => copy(toPublic),
+    configureServer: () => copy(toPublic),
+    closeBundle: () => copy(fileURLToPath(new URL('./dist/landing/demo.mp4', import.meta.url))),
+  }
+}
 
 function excludeWebOnlyAssetsFromDesktop(): Plugin {
   return {
@@ -106,6 +124,7 @@ export default defineConfig({
     react(),
     tailwindcss(),
     excalidrawFonts(),
+    landingDemo(),
     excludeWebOnlyAssetsFromDesktop(),
     offlineShell(),
   ],

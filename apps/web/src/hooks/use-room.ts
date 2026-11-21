@@ -4,6 +4,7 @@
  * changes. Local edits survive a server change: they live in IndexedDB and merge in.
  */
 import { session } from '../app/access'
+import { isFreshRoom } from '../app/fresh-room'
 import { useEffect, useState } from 'react'
 import { DEFAULT_SYNC_URL, type UserIdentity } from '@hydras/shared'
 import { createRoom, type Room } from '@hydras/sync'
@@ -27,6 +28,7 @@ export function useRoom(slug: string, user: UserIdentity): Room | null {
       token: credentials?.token,
       readOnly: credentials?.role === 'viewer' || credentials?.role === 'rejected',
       seedStarterFiles: !hasFolderLink(slug),
+      seedWithoutSync: isFreshRoom(slug),
     })
     setRoom(created)
     return () => {

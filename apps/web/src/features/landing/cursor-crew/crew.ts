@@ -35,6 +35,8 @@ function decide(): boolean {
   const forced = new URLSearchParams(window.location.search).get('build')
   if (forced === '1') return true
   if (forced === '0') return false
+  // Someone opened the page to watch the recording; don't cover it with the build.
+  if (new URLSearchParams(window.location.search).get('watch') === '1') return false
 
   if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return false
   // Phones only: below this the hero stacks and four cursors become a scribble.

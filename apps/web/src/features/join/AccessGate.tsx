@@ -1,8 +1,13 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { loadIdentity } from '../../app/identity'
 import { roomApi, saveSession, session } from '../../app/access'
+import { isFreshRoom } from '../../app/fresh-room'
 export function AccessGate({ slug, children }: { slug: string; children: ReactNode }) {
-  const [role, setRole] = useState(session(slug)?.role ?? 'checking')
+  // A room this tab just created has nothing to protect. Enter it immediately and keep
+  // editing locally when the host is down; a later status response can still lock it.
+  const [role, setRole] = useState(
+    () => session(slug)?.role ?? (isFreshRoom(slug) ? 'open' : 'checking'),
+  )
   const [password, setPassword] = useState('')
   const [name, setName] = useState(() => loadIdentity()?.name ?? '')
   const [error, setError] = useState('')
@@ -47,7 +52,11 @@ export function AccessGate({ slug, children }: { slug: string; children: ReactNo
         <div className="w-full max-w-md space-y-4 rounded-xl border border-line p-8">
           <h1 className="text-2xl">{slug}</h1>
           <p role="status">{error || 'Checking the room…'}</p>
-          <a href="/">Back to Host / Join</a>
+          <p>
+            <a href="/?landing=1&watch=1">Watch the demo</a>
+            {' · '}
+            <a href="/">Back to Host / Join</a>
+          </p>
         </div>
       </main>
     )

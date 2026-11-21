@@ -5,10 +5,12 @@
  * `data-build` marks the pieces the cursor crew assembles (see cursor-crew/). When the
  * crew is running it owns the entrance, so each piece skips its own fade-up.
  */
+import { useState } from 'react'
 import { Play, Rocket } from 'lucide-react'
 import { motion } from 'motion/react'
 import { useSettingsStore } from '../../app/settings-store'
 import { cursorBuildEnabled } from './cursor-crew/crew'
+import { DemoDialog } from './DemoDialog'
 import { ASSET, Wordmark } from './shared'
 import { openNewRoom } from './open-room'
 
@@ -22,6 +24,9 @@ const NAV = [
 export function Hero() {
   const reduceMotion = useSettingsStore((s) => s.reduceMotion)
   const built = cursorBuildEnabled(reduceMotion)
+  const [demoOpen, setDemoOpen] = useState(
+    () => new URLSearchParams(window.location.search).get('watch') === '1',
+  )
   /** `false` tells Motion to render at the animate state with no entrance of its own. */
   const enter = (from: { opacity: number; y: number }) => (built ? false : from)
 
@@ -116,13 +121,14 @@ export function Hero() {
           >
             Open a room <Rocket className="size-4" />
           </button>
-          <a
-            href="#features"
-            aria-label="See how it works"
+          <button
+            type="button"
+            onClick={() => setDemoOpen(true)}
+            aria-label="Watch the demo"
             className="flex h-11 w-11 cursor-pointer items-center justify-center rounded-full bg-white shadow-[0_2px_12px_rgba(0,0,0,0.08)] transition-all hover:scale-105 active:scale-95"
           >
             <Play className="h-4 w-4 translate-x-0.5 fill-foreground text-foreground" />
-          </a>
+          </button>
         </motion.div>
 
         <motion.div
@@ -143,6 +149,7 @@ export function Hero() {
           </div>
         </motion.div>
       </main>
+      <DemoDialog open={demoOpen} onClose={() => setDemoOpen(false)} />
     </div>
   )
 }

@@ -74,6 +74,12 @@ export interface RoomOptions {
   token?: string
   readOnly?: boolean
   seedStarterFiles?: boolean
+  /**
+   * Seed from the local copy without waiting for the server. Only for a room this
+   * client just created: an existing room must wait for sync, or the starters would
+   * merge into someone else's files when the host comes back.
+   */
+  seedWithoutSync?: boolean
 }
 
 export interface FolderState {
@@ -145,6 +151,7 @@ export function createRoom({
   token,
   readOnly = false,
   seedStarterFiles = true,
+  seedWithoutSync = false,
 }: RoomOptions): Room {
   const doc = new Y.Doc()
   const storage = new IndexeddbPersistence(
@@ -310,6 +317,7 @@ export function createRoom({
     if (checkpoint instanceof Uint8Array) Y.applyUpdate(doc, checkpoint, storage)
     persistCheckpoint()
     if (destroyed) return
+    if (seedWithoutSync) seedIfEmpty()
     refreshInspector()
     void socket.connect()
   })
