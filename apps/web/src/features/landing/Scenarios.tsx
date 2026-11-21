@@ -7,7 +7,8 @@ import { motion } from 'motion/react'
 import { ArrowRight, MonitorDown } from 'lucide-react'
 import { FACES } from './shared'
 import { openNewRoom } from './open-room'
-import { formatSize, useDownloadsManifest } from './use-downloads-manifest'
+import { LATEST_RELEASE_PAGE } from '../../app/installer-source'
+import { formatSize, useWindowsInstaller } from './use-downloads-manifest'
 
 type Tag = 'Team' | 'Solo'
 
@@ -104,9 +105,11 @@ function Card({ t, i, className = '' }: { t: Scenario; i: number; className?: st
 }
 
 function DownloadCard() {
-  const state = useDownloadsManifest()
-  const installer =
-    state.status === 'ready' ? state.manifest.assets.find((a) => a.kind === 'nsis') : undefined
+  const state = useWindowsInstaller()
+  const installer = state.status === 'ready' ? state.installer : null
+  // Always a working link: the exact .exe when known, else the latest release page.
+  const href = installer?.url ?? LATEST_RELEASE_PAGE
+  const isDirect = installer !== null
 
   return (
     <motion.div
@@ -139,21 +142,26 @@ function DownloadCard() {
         >
           Open a room <ArrowRight className="size-4" />
         </button>
-        {installer ? (
-          <a
-            href={`/downloads/${installer.file}`}
-            download
-            className="inline-flex w-fit items-center gap-2 rounded-full bg-neutral-900/85 px-5 py-2.5 text-sm font-semibold text-white shadow-lg transition-transform hover:scale-[1.03]"
-          >
-            <MonitorDown className="size-4" /> Windows · {formatSize(installer.bytes)}
-          </a>
-        ) : (
-          <span className="text-xs text-neutral-700">
-            {state.status === 'loading'
-              ? 'Checking for the Windows installer…'
-              : 'Windows installer: build it with pnpm release:desktop'}
-          </span>
-        )}
+        <a
+          href={href}
+          {...(isDirect
+            ? { download: installer.fileName }
+            : { target: '_blank', rel: 'noreferrer' })}
+          aria-busy={state.status === 'loading'}
+          className="inline-flex w-fit items-center gap-2 rounded-full bg-neutral-900/85 px-5 py-2.5 whitespace-nowrap text-sm font-semibold text-white shadow-lg transition-transform hover:scale-[1.03]"
+        >
+          <MonitorDown className="size-4" /> Download for Windows
+        </a>
+        <span className="text-xs text-neutral-700">
+          {[
+            installer?.version ? `v${installer.version}` : null,
+            installer?.bytes != null ? formatSize(installer.bytes) : null,
+            'Windows 10/11',
+            'one-click install, no admin',
+          ]
+            .filter(Boolean)
+            .join(' · ')}
+        </span>
       </div>
     </motion.div>
   )

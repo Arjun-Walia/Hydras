@@ -1,38 +1,26 @@
 /**
- * Read /downloads/manifest.json (written by `pnpm release:stage`) so the download
- * buttons show the real installer, size and checksum, or nothing if none is staged.
+ * The Windows installer the landing page offers (see app/installer-source): a staged
+ * /downloads build, else the latest GitHub release, else a link to the releases page.
  */
 import { useEffect, useState } from 'react'
-import {
-  DOWNLOADS_MANIFEST_URL,
-  parseDownloadsManifest,
-  type DownloadsManifest,
-} from '../../app/platform'
+import { findWindowsInstaller, type WindowsInstaller } from '../../app/installer-source'
 
-export type ManifestState =
-  { status: 'loading' } | { status: 'missing' } | { status: 'ready'; manifest: DownloadsManifest }
+export type InstallerState =
+  | { status: 'loading' }
+  /** No direct asset found: link to the latest release page instead. */
+  | { status: 'fallback' }
+  | { status: 'ready'; installer: WindowsInstaller }
 
-export function useDownloadsManifest(): ManifestState {
-  const [state, setState] = useState<ManifestState>({ status: 'loading' })
+export function useWindowsInstaller(): InstallerState {
+  const [state, setState] = useState<InstallerState>({ status: 'loading' })
   useEffect(() => {
     const controller = new AbortController()
-    fetch(DOWNLOADS_MANIFEST_URL, {
-      signal: controller.signal,
-      cache: 'no-store',
-      headers: { Accept: 'application/json' },
-    })
-      .then((res) => (res.ok ? res.json() : null))
-      .then((json: unknown) => {
-        const manifest = parseDownloadsManifest(json)
-        setState(
-          manifest && manifest.assets.length > 0
-            ? { status: 'ready', manifest }
-            : { status: 'missing' },
-        )
-      })
-      .catch((error: unknown) => {
-        if (!(error instanceof DOMException && error.name === 'AbortError'))
-          setState({ status: 'missing' })
+    findWindowsInstaller(controller.signal)
+      .then((installer) =>
+        setState(installer ? { status: 'ready', installer } : { status: 'fallback' }),
+      )
+      .catch(() => {
+        if (!controller.signal.aborted) setState({ status: 'fallback' })
       })
     return () => controller.abort()
   }, [])
