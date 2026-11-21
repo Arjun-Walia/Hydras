@@ -50,6 +50,7 @@ export function Inspector() {
         <button
           type="button"
           onClick={() => toggleOfflineAction(room)}
+          aria-pressed={connection.forcedOffline}
           className={cn(
             'mt-3 flex h-8 w-full items-center justify-center gap-2 rounded-[var(--radius-chrome)] border text-[12px] font-medium transition-colors duration-150',
             connection.forcedOffline
@@ -60,6 +61,10 @@ export function Inspector() {
           {connection.forcedOffline ? <Wifi size={13} /> : <WifiOff size={13} />}
           {connection.forcedOffline ? 'Go back online' : 'Go offline'}
         </button>
+        <p className="mt-3 text-[11.5px] leading-snug text-muted">
+          Edits stay on this laptop while offline and merge when the connection returns. Undo
+          reverts only your changes.
+        </p>
       </Section>
 
       <Section title="Numbers">

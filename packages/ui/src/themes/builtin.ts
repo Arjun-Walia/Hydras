@@ -29,7 +29,7 @@ export const BUILTIN_THEMES: readonly ThemeSpec[] = [
       function: '#a5d4e3',
       string: '#a3d6a8',
       number: '#eeb68a',
-      comment: '#6b6b67',
+      comment: '#8e8e89',
     },
   },
   {
@@ -54,7 +54,7 @@ export const BUILTIN_THEMES: readonly ThemeSpec[] = [
       function: '#2f63ad',
       string: '#3c7d45',
       number: '#a8571d',
-      comment: '#9a9a96',
+      comment: '#6e6e6b',
     },
   },
   {

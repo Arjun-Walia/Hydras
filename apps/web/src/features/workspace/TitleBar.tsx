@@ -42,6 +42,7 @@ export function TitleBar() {
       <button
         type="button"
         onClick={() => setPaletteOpen(true)}
+        aria-keyshortcuts="Control+K"
         className="flex h-7 w-[min(360px,36vw)] items-center gap-2 rounded-[var(--radius-chrome)] border border-line-soft bg-surface-soft px-2.5 text-[12.5px] text-faint transition-colors duration-150 hover:border-line hover:text-muted"
       >
         <Search size={13} strokeWidth={2} />

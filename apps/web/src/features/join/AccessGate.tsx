@@ -41,6 +41,17 @@ export function AccessGate({ slug, children }: { slug: string; children: ReactNo
         {children}
       </div>
     )
+  if (role === 'checking') {
+    return (
+      <main className="grid h-full place-items-center bg-bg text-fg">
+        <div className="w-full max-w-md space-y-4 rounded-xl border border-line p-8">
+          <h1 className="text-2xl">{slug}</h1>
+          <p role="status">{error || 'Checking the room…'}</p>
+          <a href="/">Back to Host / Join</a>
+        </div>
+      </main>
+    )
+  }
   return (
     <main className="grid h-full place-items-center bg-bg text-fg">
       <form

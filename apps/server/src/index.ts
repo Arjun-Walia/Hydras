@@ -1,8 +1,9 @@
 /**
  * Hydras sync server: Hocuspocus relay + SQLite persistence, one process.
  *
- * Invariant: the server never interprets document contents. It authenticates (stub),
- * relays Yjs updates and awareness, and stores snapshots. Rooms are addressed by name.
+ * Invariant: the server never interprets document contents. It checks the room
+ * password and member role, relays Yjs updates and awareness, and stores snapshots.
+ * Rooms are addressed by name. A room with no access file entry stays open.
  */
 import { mkdirSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'

@@ -33,11 +33,12 @@ export function StatusBar() {
       <button
         type="button"
         onClick={() => toggleOfflineAction(room)}
+        aria-pressed={connection.forcedOffline}
         title={connection.forcedOffline ? 'Go back online' : 'Simulate going offline'}
         className="flex items-center gap-2 rounded px-1 -mx-1 hover:text-fg"
       >
         <StatusDot tone={label.tone} pulse={label.pulse} />
-        <span>
+        <span role="status">
           {connection.status === 'online'
             ? delivery > 0
               ? 'Waiting to sync…'
@@ -61,6 +62,7 @@ export function StatusBar() {
       <button
         type="button"
         onClick={() => toggleTerminal()}
+        aria-pressed={terminalOpen}
         title="Toggle terminal (Ctrl+`)"
         className={cn(
           'flex items-center gap-1.5 rounded px-1 hover:text-fg',

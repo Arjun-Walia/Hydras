@@ -54,20 +54,34 @@ export function AvatarStack({ people, max = 5, onSelect }: AvatarStackProps) {
   const shown = people.slice(0, max)
   const overflow = people.length - shown.length
   return (
-    <div className="flex items-center -space-x-1.5">
-      {shown.map((person) => (
-        <button
-          key={person.key}
-          type="button"
-          className="rounded-full transition-transform duration-150 ease-out hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)]"
-          onClick={() => onSelect?.(person)}
-          aria-label={person.isSelf ? `${person.name} (you)` : person.name}
-        >
-          <Avatar person={person} />
-        </button>
-      ))}
+    <div
+      className="flex items-center -space-x-1.5"
+      role="group"
+      aria-label="Collaborators in this room"
+    >
+      {shown.map((person) => {
+        const label = person.isSelf ? `${person.name} (you)` : person.name
+        return onSelect ? (
+          <button
+            key={person.key}
+            type="button"
+            className="rounded-full transition-transform duration-150 ease-out hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)]"
+            onClick={() => onSelect(person)}
+            aria-label={label}
+          >
+            <Avatar person={person} />
+          </button>
+        ) : (
+          <span key={person.key} aria-label={label}>
+            <Avatar person={person} />
+          </span>
+        )
+      })}
       {overflow > 0 && (
-        <span className="inline-grid h-6 min-w-6 place-items-center rounded-full bg-[var(--surface-raised)] px-1.5 text-[10px] font-semibold text-[var(--muted)] tabular-nums ring-2 ring-[var(--bg)]">
+        <span
+          className="inline-grid h-6 min-w-6 place-items-center rounded-full bg-[var(--surface-raised)] px-1.5 text-[10px] font-semibold text-[var(--muted)] tabular-nums ring-2 ring-[var(--bg)]"
+          aria-label={`${overflow} more collaborators`}
+        >
           +{overflow}
         </span>
       )}

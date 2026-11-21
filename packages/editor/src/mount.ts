@@ -7,7 +7,7 @@
  */
 import { defaultKeymap, indentWithTab } from '@codemirror/commands'
 import { bracketMatching, indentOnInput } from '@codemirror/language'
-import { EditorState } from '@codemirror/state'
+import { Compartment, EditorState } from '@codemirror/state'
 import {
   drawSelection,
   dropCursor,
@@ -18,7 +18,7 @@ import {
 } from '@codemirror/view'
 import type { FileBinding } from '@hydras/sync'
 import { yCollab, yUndoManagerKeymap } from 'y-codemirror.next'
-import { languageFor } from './languages'
+import { loadLanguage } from './languages'
 import {
   createPrefCompartments,
   defaultEditorPrefs,
@@ -59,11 +59,17 @@ export function mountEditor({
     onCursor({ line: line.number, column: head - line.from + 1 })
   })
 
+  const language = new Compartment()
+  let alive = true
   const state = EditorState.create({
     doc: binding.text.toString(),
     extensions: [
       EditorState.readOnly.of(readOnly),
       EditorView.editable.of(!readOnly),
+      EditorView.contentAttributes.of({
+        'aria-label': `${fileName}, shared file. Undo reverts only your edits.`,
+        'aria-multiline': 'true',
+      }),
       ...prefExtensions(compartments, prefs),
       highlightActiveLine(),
       drawSelection(),
@@ -74,7 +80,7 @@ export function mountEditor({
       EditorState.allowMultipleSelections.of(true),
       EditorState.tabSize.of(2),
       keymap.of([...yUndoManagerKeymap, ...defaultKeymap, indentWithTab]),
-      languageFor(fileName),
+      language.of([]),
       hydrasChrome,
       hydrasHighlight,
       yCollab(binding.text, binding.awareness, { undoManager: binding.undoManager }),
@@ -83,10 +89,21 @@ export function mountEditor({
   })
 
   const view = new EditorView({ state, parent })
+  void loadLanguage(fileName).then(
+    (extension) => {
+      if (alive) view.dispatch({ effects: language.reconfigure(extension) })
+    },
+    () => {
+      // Plain text is a usable editor. A failed grammar download must not unmount it.
+    },
+  )
 
   return {
     focus: () => view.focus(),
     setPrefs: (next) => reconfigurePrefs(view, compartments, next),
-    destroy: () => view.destroy(),
+    destroy: () => {
+      alive = false
+      view.destroy()
+    },
   }
 }

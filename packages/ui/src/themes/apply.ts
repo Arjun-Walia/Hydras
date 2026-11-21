@@ -20,7 +20,8 @@ export function themeToCssVars(theme: ThemeSpec): Record<string, string> {
     '--line-soft': mix(colors.border, 55, colors.background),
     '--fg': colors.text,
     '--muted': muted,
-    '--faint': mix(muted, 62, colors.background),
+    // Stay close to `muted`. A 62% mix fell under 4.5:1 on both the dark and light backgrounds.
+    '--faint': mix(muted, 92, colors.background),
     '--accent': colors.accent,
     '--accent-ink': colors.background,
     '--accent-soft': alpha(colors.accent, 13),

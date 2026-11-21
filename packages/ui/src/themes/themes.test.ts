@@ -88,6 +88,7 @@ describe('themeToCssVars', () => {
     const vars = themeToCssVars(graphite)
     expect(vars['--bg']).toBe('#090909')
     expect(vars['--accent-ink']).toBe('#090909')
+    expect(vars['--faint']).toContain('92%')
     expect(vars['--selection']).toContain('color-mix')
     expect(vars['--syn-keyword']).toBe(graphite.code.keyword)
   })

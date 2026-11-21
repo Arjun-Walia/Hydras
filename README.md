@@ -4,6 +4,14 @@ Offline-first multiplayer code workspace. 4+ people edit the same files live, ke
 through bad Wi-Fi, and everything merges on reconnect. Edits are never lost, and undo only
 touches your own changes.
 
+## Demo
+
+53 seconds: the landing page, then three people in one room typing the same file with live cursors.
+
+<video src="docs/demo.mp4" width="960" height="425" controls></video>
+
+[Open `docs/demo.mp4`](docs/demo.mp4) if the player does not start.
+
 ## LAN collaboration release (0.2)
 
 Use the Windows installer or portable ZIP from [GitHub Releases](https://github.com/Arjun-Walia/Hydras/releases). The portable entry point is `START-HYDRAS.cmd`; it opens the local browser app. The desktop installer bundles the local Node launcher and sync server.

@@ -5,6 +5,6 @@
  */
 export { mountEditor } from './mount'
 export type { EditorHandle, MountEditorOptions } from './mount'
-export { languageFor } from './languages'
+export { languageId, loadLanguage } from './languages'
 export { MAX_CODE_SIZE, MIN_CODE_SIZE, clampCodeSize, defaultEditorPrefs } from './prefs'
 export type { EditorPrefs } from './prefs'
